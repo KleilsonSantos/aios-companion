@@ -6,29 +6,70 @@ import { stdin as input, stdout as output } from 'node:process'
 import {
   fetchOperationalState,
   resolveAiosHome,
+  type OperationalStateLite,
 } from './aios/cli-bridge.ts'
+import { fetchOperationalStateMcp } from './aios/mcp-client.ts'
 import { createSession, respond } from './conversation/manager.ts'
 
 function usage(): void {
   console.log(`aios-companion — Conversation Manager (ADR-0014)
 
 Uso:
-  companion status [--json]
-  companion chat
+  companion status [--json] [--mcp|--cli]
+  companion chat [--mcp|--cli]
+
+  --mcp   forçar MCP stdio (aios_operational_state)
+  --cli   forçar CLI AIOS (--operational-state)
+  (default: tenta MCP, fallback CLI)
 
 Env:
   AIOS_HOME   path do monorepo ai-operating-system
 `)
 }
 
-async function cmdStatus(jsonOnly: boolean): Promise<void> {
+type Transport = 'auto' | 'mcp' | 'cli'
+
+function parseTransport(argv: string[]): Transport {
+  if (argv.includes('--mcp')) return 'mcp'
+  if (argv.includes('--cli')) return 'cli'
+  return 'auto'
+}
+
+async function loadState(
+  transport: Transport,
+  home: string,
+): Promise<{ state: OperationalStateLite; via: 'mcp' | 'cli' }> {
+  if (transport === 'cli') {
+    return { state: fetchOperationalState({ aiosHome: home }), via: 'cli' }
+  }
+  if (transport === 'mcp') {
+    return {
+      state: await fetchOperationalStateMcp({ aiosHome: home }),
+      via: 'mcp',
+    }
+  }
+  try {
+    return {
+      state: await fetchOperationalStateMcp({ aiosHome: home }),
+      via: 'mcp',
+    }
+  } catch {
+    return { state: fetchOperationalState({ aiosHome: home }), via: 'cli' }
+  }
+}
+
+async function cmdStatus(
+  jsonOnly: boolean,
+  transport: Transport,
+): Promise<void> {
   const home = resolveAiosHome()
-  const state = fetchOperationalState({ aiosHome: home })
+  const { state, via } = await loadState(transport, home)
   if (jsonOnly) {
-    console.log(JSON.stringify(state, null, 2))
+    console.log(JSON.stringify({ via, ...state }, null, 2))
     return
   }
   console.log(`AIOS_HOME: ${home}`)
+  console.log(`via:       ${via}`)
   console.log(`summary:   ${state.summary || '(sem summary)'}`)
   console.log(`mode:      ${state.mode || '?'}`)
   console.log(
@@ -42,10 +83,14 @@ async function cmdStatus(jsonOnly: boolean): Promise<void> {
   )
 }
 
-async function cmdChat(): Promise<void> {
-  let state
+async function cmdChat(transport: Transport): Promise<void> {
+  let state: OperationalStateLite | undefined
+  let via: string | undefined
   try {
-    state = fetchOperationalState()
+    const home = resolveAiosHome()
+    const loaded = await loadState(transport, home)
+    state = loaded.state
+    via = loaded.via
   } catch (err) {
     console.error(
       'Aviso: não foi possível obter operational state:',
@@ -53,7 +98,7 @@ async function cmdChat(): Promise<void> {
     )
   }
   const session = createSession(state)
-  console.log(`session ${session.id}`)
+  console.log(`session ${session.id}${via ? ` · via ${via}` : ''}`)
   console.log('(Ctrl+C ou /quit para sair · sem voz neste MVP)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
@@ -74,16 +119,17 @@ async function cmdChat(): Promise<void> {
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
   const cmd = argv[0]
+  const transport = parseTransport(argv)
   if (!cmd || cmd === '-h' || cmd === '--help') {
     usage()
     return
   }
   if (cmd === 'status') {
-    await cmdStatus(argv.includes('--json'))
+    await cmdStatus(argv.includes('--json'), transport)
     return
   }
   if (cmd === 'chat') {
-    await cmdChat()
+    await cmdChat(transport)
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

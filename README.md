@@ -33,8 +33,10 @@ export AIOS_HOME=/path/to/ai-operating-system
 
 ```bash
 pnpm install
-pnpm companion status    # snapshot via AIOS CLI --operational-state
-pnpm companion chat     # Conversation Manager (turn-based, sem voz)
+pnpm companion status           # MCP (fallback CLI) → aios_operational_state
+pnpm companion status --mcp     # forçar MCP stdio
+pnpm companion status --cli     # forçar CLI AIOS
+pnpm companion chat             # Conversation Manager (turn-based, sem voz)
 ```
 
 ## Resource-Aware
