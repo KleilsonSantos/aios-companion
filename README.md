@@ -35,8 +35,8 @@ export AIOS_HOME=/path/to/ai-operating-system
 pnpm install
 pnpm companion status           # MCP (fallback CLI) → aios_operational_state
 pnpm companion status --mcp     # forçar MCP stdio
-pnpm companion status --cli     # forçar CLI AIOS
-pnpm companion chat             # Conversation Manager (turn-based, sem voz)
+pnpm companion chat             # replies via aios_provider_chat (fallback local)
+pnpm companion chat --local     # só respostas determinísticas
 ```
 
 ## Resource-Aware
