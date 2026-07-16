@@ -8,19 +8,28 @@ import {
   resolveAiosHome,
   type OperationalStateLite,
 } from './aios/cli-bridge.ts'
-import { fetchOperationalStateMcp } from './aios/mcp-client.ts'
-import { createSession, respond } from './conversation/manager.ts'
+import {
+  AiosMcpSession,
+  fetchOperationalStateMcp,
+} from './aios/mcp-client.ts'
+import {
+  createSession,
+  respondLocal,
+  respondWithProvider,
+} from './conversation/manager.ts'
 
 function usage(): void {
   console.log(`aios-companion — Conversation Manager (ADR-0014)
 
 Uso:
   companion status [--json] [--mcp|--cli]
-  companion chat [--mcp|--cli]
+  companion chat [--mcp|--cli] [--local]
 
-  --mcp   forçar MCP stdio (aios_operational_state)
-  --cli   forçar CLI AIOS (--operational-state)
-  (default: tenta MCP, fallback CLI)
+  --mcp     forçar MCP stdio
+  --cli     forçar CLI AIOS (só status / estado inicial)
+  --local   chat só com respostas determinísticas (sem Ollama)
+
+  Chat (default): MCP session + aios_provider_chat; fallback local se provider down.
 
 Env:
   AIOS_HOME   path do monorepo ai-operating-system
@@ -83,22 +92,54 @@ async function cmdStatus(
   )
 }
 
-async function cmdChat(transport: Transport): Promise<void> {
+async function cmdChat(
+  transport: Transport,
+  localOnly: boolean,
+): Promise<void> {
+  const home = resolveAiosHome()
   let state: OperationalStateLite | undefined
   let via: string | undefined
-  try {
-    const home = resolveAiosHome()
-    const loaded = await loadState(transport, home)
-    state = loaded.state
-    via = loaded.via
-  } catch (err) {
-    console.error(
-      'Aviso: não foi possível obter operational state:',
-      err instanceof Error ? err.message : err,
-    )
+  let mcp: AiosMcpSession | undefined
+
+  if (!localOnly && transport !== 'cli') {
+    mcp = new AiosMcpSession(home)
+    try {
+      await mcp.connect()
+      state = await mcp.operationalState()
+      via = 'mcp'
+    } catch (err) {
+      await mcp.close().catch(() => undefined)
+      mcp = undefined
+      console.error(
+        'Aviso: MCP indisponível —',
+        err instanceof Error ? err.message : err,
+      )
+    }
   }
+
+  if (!state) {
+    try {
+      const loaded = await loadState(
+        transport === 'mcp' ? 'cli' : transport,
+        home,
+      )
+      state = loaded.state
+      via = loaded.via
+    } catch (err) {
+      console.error(
+        'Aviso: não foi possível obter operational state:',
+        err instanceof Error ? err.message : err,
+      )
+    }
+  }
+
   const session = createSession(state)
-  console.log(`session ${session.id}${via ? ` · via ${via}` : ''}`)
+  const mode =
+    localOnly || !mcp
+      ? 'local'
+      : 'provider (MCP aios_provider_chat; fallback local)'
+  console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
+  console.log(`replies: ${mode}`)
   console.log('(Ctrl+C ou /quit para sair · sem voz neste MVP)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
@@ -108,11 +149,16 @@ async function cmdChat(transport: Transport): Promise<void> {
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
-      const turn = respond(session, line)
-      console.log(`companion> ${turn.content}\n`)
+      const turn =
+        mcp && !localOnly
+          ? await respondWithProvider(session, line, mcp)
+          : respondLocal(session, line)
+      const tag = turn.via === 'provider' ? ' · provider' : ' · local'
+      console.log(`companion${tag}> ${turn.content}\n`)
     }
   } finally {
     rl.close()
+    await mcp?.close().catch(() => undefined)
   }
 }
 
@@ -129,7 +175,7 @@ async function main(): Promise<void> {
     return
   }
   if (cmd === 'chat') {
-    await cmdChat(transport)
+    await cmdChat(transport, argv.includes('--local'))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

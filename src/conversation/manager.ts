@@ -1,13 +1,15 @@
 /**
  * Conversation Manager — turns de chat (sem voz no MVP).
- * Injeta resumo do Operational State do AIOS como contexto de sistema.
+ * Injeta resumo do Operational State; replies preferem provider AIOS (MCP).
  */
 import type { OperationalStateLite } from '../aios/cli-bridge.ts'
+import type { AiosMcpSession } from '../aios/mcp-client.ts'
 
 export type ChatTurn = {
   role: 'system' | 'user' | 'assistant'
   content: string
   at: string
+  via?: 'local' | 'provider'
 }
 
 export type ConversationSession = {
@@ -32,6 +34,7 @@ export function createSession(state?: OperationalStateLite): ConversationSession
       'Não inventes policies — sugere consultar o control plane.',
       `Estado operacional: ${summary}${branch}`,
       'Voz e controlo de IDE/Docker estão fora de escopo neste MVP.',
+      'Respostas curtas e práticas em português.',
     ].join('\n'),
     at: now(),
   }
@@ -42,33 +45,77 @@ export function createSession(state?: OperationalStateLite): ConversationSession
   }
 }
 
-/**
- * Resposta determinística MVP (sem LLM local obrigatório).
- * Um integrador pode trocar por provider via AIOS mais tarde.
- */
-export function respond(session: ConversationSession, userText: string): ChatTurn {
+function systemPrompt(session: ConversationSession): string {
+  return session.turns.find((t) => t.role === 'system')?.content || ''
+}
+
+/** Resposta determinística (offline / provider down) — Resource-Aware. */
+export function respondLocal(
+  session: ConversationSession,
+  userText: string,
+): ChatTurn {
   const content = userText.trim() || '(vazio)'
   session.turns.push({ role: 'user', content, at: now() })
 
   const lower = content.toLowerCase()
   let reply: string
   if (lower.includes('status') || lower.includes('estado')) {
-    const sys = session.turns.find((t) => t.role === 'system')
     reply =
-      sys?.content.split('\n').find((l) => l.startsWith('Estado operacional:')) ||
+      systemPrompt(session)
+        .split('\n')
+        .find((l) => l.startsWith('Estado operacional:')) ||
       'Sem snapshot — corre `companion status`.'
   } else if (lower.includes('ajuda') || lower === 'help') {
     reply =
-      'Comandos úteis: falar do projeto; perguntar "status"; `companion status` no terminal. Voz ainda não.'
+      'Comandos: perguntar "status"; `companion status`; chat usa provider AIOS se disponível (Ollama). Voz ainda não.'
   } else {
     reply = [
       `Registei: “${content.slice(0, 200)}”.`,
-      'Próximo passo sugerido: validar no AIOS (`aios --operational-state` / console Try it).',
-      'Não executo policies aqui — sou a camada de diálogo.',
+      'Provider AIOS indisponível — resposta local.',
+      'Valida no control plane: `companion status` / console Try it.',
     ].join(' ')
   }
 
-  const assistant: ChatTurn = { role: 'assistant', content: reply, at: now() }
+  const assistant: ChatTurn = {
+    role: 'assistant',
+    content: reply,
+    at: now(),
+    via: 'local',
+  }
   session.turns.push(assistant)
   return assistant
+}
+
+/** @deprecated use respondLocal */
+export const respond = respondLocal
+
+/**
+ * Reply via AIOS `aios_provider_chat` (MCP). Fallback local se falhar.
+ */
+export async function respondWithProvider(
+  session: ConversationSession,
+  userText: string,
+  mcp: AiosMcpSession,
+): Promise<ChatTurn> {
+  const content = userText.trim() || '(vazio)'
+  session.turns.push({ role: 'user', content, at: now() })
+
+  try {
+    const out = await mcp.providerChat({
+      message: content,
+      system: systemPrompt(session),
+    })
+    const assistant: ChatTurn = {
+      role: 'assistant',
+      content: out.content || '(vazio)',
+      at: now(),
+      via: 'provider',
+    }
+    session.turns.push(assistant)
+    return assistant
+  } catch {
+    // remove user turn — respondLocal will re-push
+    session.turns.pop()
+    return respondLocal(session, content)
+  }
 }
