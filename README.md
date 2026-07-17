@@ -46,6 +46,7 @@ pnpm companion caps             # probe git / github
 pnpm companion caps git         # branch/status on-demand
 pnpm companion caps github      # PRs abertos via `gh` (se autenticado)
 pnpm companion run "Analise meu projeto."   # núcleo AIOS (aios_run_pipeline)
+pnpm companion run-all "Analise" --workspace aios --workspace companion
 pnpm companion gov                  # health + attention (aios_governance_status)
 pnpm companion decide "aceitar CI mínimo" --verdict info
 pnpm companion audit                # inventário/drift docs (aios_audit_docs)

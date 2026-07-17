@@ -299,3 +299,63 @@ describe('AiosMcpSession.workspaces', () => {
     assert.match(out.summary, /1\/2/)
   })
 })
+
+describe('AiosMcpSession.runAcrossWorkspaces', () => {
+  it('resume OK quando todos passam', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_run_across_workspaces')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                input: 'Analise',
+                results: [
+                  {
+                    workspaceId: 'aios',
+                    verdictPassed: true,
+                    intentKind: 'analyze.project',
+                  },
+                  {
+                    workspaceId: 'comp',
+                    verdictPassed: true,
+                    intentKind: 'analyze.project',
+                  },
+                ],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.runAcrossWorkspaces({ input: 'Analise' })
+    assert.equal(out.passed, true)
+    assert.equal(out.results.length, 2)
+    assert.match(out.summary, /OK · 2/)
+  })
+
+  it('não throw quando isError + JSON parcial FAIL', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              results: [
+                { workspaceId: 'a', verdictPassed: true },
+                { workspaceId: 'b', verdictPassed: false, error: 'gate' },
+              ],
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.runAcrossWorkspaces({ input: 'x' })
+    assert.equal(out.passed, false)
+    assert.match(out.summary, /FAIL · 1\/2/)
+  })
+})
