@@ -21,6 +21,7 @@ import {
   loadPoliciesMcp,
   memoryRecallMcp,
   memoryRememberMcp,
+  memoryClearMcp,
   providerHealthMcp,
   providerModelsMcp,
   runAcrossWorkspacesMcp,
@@ -59,6 +60,7 @@ Uso:
   companion audit [--json] [--repo path] [--workspace id]
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
   companion memory remember [workspace] "<nota>" [--tag t] [--json]
+  companion memory clear [workspace] --yes [--json]
   companion brief "<intent>" [--json] [--repo path] [--workspace id] [--limit n]
   companion workspaces [list] [--json]
   companion workspaces add <id> <path> [--name n] [--tag t] [--default] [--json]
@@ -81,7 +83,7 @@ Uso:
   Gov: aios_governance_status (health + attention); gov audit → aios_governance_audit.
   Decide: aios_governance_record (log de decisões).
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
-  Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
+  Memory: aios_memory_recall / aios_memory_remember / aios_memory_clear (--yes).
   Brief: aios_compile_prompt (intent → brief governado; alias: compile).
   Workspaces: aios_list_workspaces / aios_workspace_* (alias: ws).
   Knowledge: aios_build_knowledge (mapa heurístico do repo; alias: kg).
@@ -517,7 +519,33 @@ async function cmdMemory(argv: string[]): Promise<void> {
     return
   }
 
-  console.error('Uso: companion memory recall|remember …')
+  if (sub === 'clear' || sub === 'reset' || sub === 'wipe') {
+    const yes = rest.includes('--yes') || rest.includes('-y')
+    const ws =
+      rest.find((a) => !a.startsWith('-')) ||
+      process.env.AIOS_WORKSPACE ||
+      'aios'
+    if (!yes) {
+      console.error(
+        `Uso: companion memory clear [workspace] --yes\n` +
+          `  (destrutivo: apaga memória de "${ws}")`,
+      )
+      process.exitCode = 1
+      return
+    }
+    const out = await memoryClearMcp({ aiosHome: home, workspaceId: ws })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    if (out.remaining.length) {
+      console.log(`remaining workspaces: ${out.remaining.join(', ')}`)
+    }
+    return
+  }
+
+  console.error('Uso: companion memory recall|remember|clear …')
   process.exitCode = 1
 }
 
@@ -1090,8 +1118,15 @@ async function cmdChat(
         continue
       }
       if (line.trim() === '/memory' || line.trim().startsWith('/memory ')) {
+        const memArgs = line.trim().slice('/memory'.length).trim()
+        if (memArgs === 'clear' || memArgs.startsWith('clear ')) {
+          console.log(
+            'companion · memory> clear é destrutivo — usa `companion memory clear [ws] --yes`\n',
+          )
+          continue
+        }
         const ws =
-          line.trim().slice('/memory'.length).trim() ||
+          memArgs ||
           process.env.AIOS_WORKSPACE ||
           'aios'
         try {
