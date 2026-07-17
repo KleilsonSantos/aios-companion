@@ -126,9 +126,12 @@ export class AiosMcpSession {
       command: process.execPath,
       args: ['--experimental-strip-types', entry],
       cwd: this.aiosHome,
+      // Banner MCP vai para stderr (inherit) — silenciar no Companion (#34).
+      stderr: 'ignore',
       env: {
         ...process.env,
         AIOS_HOME: this.aiosHome,
+        AIOS_MCP_QUIET: '1',
       } as Record<string, string>,
     })
     const client = new Client({
