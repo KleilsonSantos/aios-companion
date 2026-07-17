@@ -5,12 +5,21 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-17
+
+Marco **pós-MVP** — superfície MCP alargada (Prompt Engine, multi-repo, Knowledge Graph). Sem voz / sem UX cinemática.
+
 ### Added
 
 - `companion brief` / `compile` / `/brief` — `aios_compile_prompt` (intent → brief governado) (#43)
 - `companion workspaces` / `ws` / `/workspaces` — `aios_list_workspaces` + `aios_workspace_*` (#46)
 - `companion run-all` / `/run-all` — `aios_run_across_workspaces` (pipeline multi-repo) (#49)
 - `companion knowledge` / `kg` / `/knowledge` — `aios_build_knowledge` (mapa heurístico) (#52)
+
+### Notes
+
+- Requer AIOS `v0.18.0+` e `AIOS_HOME`
+- Visão Jarvis/Minority Report: issue [#37](https://github.com/KleilsonSantos/aios-companion/issues/37) (parked)
 
 ## [0.2.0] — 2026-07-17
 
