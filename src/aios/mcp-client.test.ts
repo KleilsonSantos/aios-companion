@@ -183,3 +183,33 @@ describe('AiosMcpSession.auditDocs', () => {
     assert.equal(out.missing[0], 'docs/FOUNDATION.md')
   })
 })
+
+describe('AiosMcpSession.compilePrompt', () => {
+  it('resume brief e stats', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string; arguments?: { input?: string } }) => {
+        assert.equal(req.name, 'aios_compile_prompt')
+        assert.equal(req.arguments?.input, 'Crie um hook de auth')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                intent: 'Crie um hook de auth',
+                workspaceId: 'aios',
+                brief: '# Brief\n\nPolicies…',
+                stats: { policies: 3, memories: 1 },
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.compilePrompt({ input: 'Crie um hook de auth' })
+    assert.match(out.brief, /# Brief/)
+    assert.equal(out.intent, 'Crie um hook de auth')
+    assert.match(out.summary, /brief ·/)
+    assert.match(out.summary, /policies=3/)
+  })
+})

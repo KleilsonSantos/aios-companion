@@ -51,6 +51,7 @@ pnpm companion decide "aceitar CI mínimo" --verdict info
 pnpm companion audit                # inventário/drift docs (aios_audit_docs)
 pnpm companion memory recall        # memória do workspace (default: aios)
 pnpm companion memory remember "nota curta"
+pnpm companion brief "Crie um hook de auth"   # Prompt Engine (aios_compile_prompt)
 ```
 
 ## Capability adapters
