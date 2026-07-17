@@ -1,6 +1,7 @@
 /**
  * Conversation Manager — turns de chat (sem voz no MVP).
  * Injeta resumo do Operational State; replies preferem provider AIOS (MCP).
+ * Intents de análise → núcleo via aios_run_pipeline (não improvisar no chat).
  */
 import type { OperationalStateLite } from '../aios/cli-bridge.ts'
 import type { AiosMcpSession } from '../aios/mcp-client.ts'
@@ -9,7 +10,7 @@ export type ChatTurn = {
   role: 'system' | 'user' | 'assistant'
   content: string
   at: string
-  via?: 'local' | 'provider'
+  via?: 'local' | 'provider' | 'pipeline'
 }
 
 export type ConversationSession = {
@@ -33,6 +34,7 @@ export function createSession(state?: OperationalStateLite): ConversationSession
       'És o Companion do AIOS (experiência). O AIOS governa; tu conversas.',
       'Não inventes policies — sugere consultar o control plane.',
       `Estado operacional: ${summary}${branch}`,
+      'Pedidos de análise/inspeção do projeto → pipeline AIOS (não improvisar).',
       'Voz e controlo de IDE/Docker estão fora de escopo neste MVP.',
       'Capabilities: `companion caps` (git / github via CLI on-demand).',
       'Respostas curtas e práticas em português.',
@@ -50,6 +52,29 @@ function systemPrompt(session: ConversationSession): string {
   return session.turns.find((t) => t.role === 'system')?.content || ''
 }
 
+/**
+ * Detecta intent que deve ir ao núcleo (pipeline), não ao chat LLM.
+ * Heurística leve — Resource-Aware, sem NLU externo.
+ */
+export function isPipelineIntent(text: string): boolean {
+  const t = text.trim().toLowerCase()
+  if (!t || t.startsWith('/')) return false
+  if (/\b(analisa|analise|analyze|analys[ei])\b/.test(t)) return true
+  if (
+    /\b(inspeciona|inspect)\b/.test(t) &&
+    /\b(projeto|project|repo|código|codigo)\b/.test(t)
+  ) {
+    return true
+  }
+  if (
+    /\breview\b/.test(t) &&
+    /\b(project|projeto|architecture|arquitetura|codebase)\b/.test(t)
+  ) {
+    return true
+  }
+  return false
+}
+
 /** Resposta determinística (offline / provider down) — Resource-Aware. */
 export function respondLocal(
   session: ConversationSession,
@@ -60,7 +85,10 @@ export function respondLocal(
 
   const lower = content.toLowerCase()
   let reply: string
-  if (lower.includes('status') || lower.includes('estado')) {
+  if (isPipelineIntent(content)) {
+    reply =
+      'Isto pede o núcleo AIOS. Corre `companion run "…"`, `/run …` no chat, ou liga MCP (sem `--local`).'
+  } else if (lower.includes('status') || lower.includes('estado')) {
     reply =
       systemPrompt(session)
         .split('\n')
@@ -68,7 +96,7 @@ export function respondLocal(
       'Sem snapshot — corre `companion status`.'
   } else if (lower.includes('ajuda') || lower === 'help') {
     reply =
-      'Comandos: "status"; `companion status`; `companion caps git|github`; chat usa provider AIOS se disponível. Voz ainda não.'
+      'Comandos: "status"; análise → pipeline; `companion caps|gov|audit|memory|decide|run`. Voz ainda não.'
   } else if (lower.includes('github') || /\bprs?\b/.test(lower)) {
     reply =
       'GitHub: corre `companion caps github` (usa `gh` se autenticado). Não duplico APIs no Companion.'
@@ -95,6 +123,47 @@ export function respondLocal(
 
 /** @deprecated use respondLocal */
 export const respond = respondLocal
+
+/**
+ * Núcleo AIOS — intent de análise via aios_run_pipeline.
+ */
+export async function respondWithPipeline(
+  session: ConversationSession,
+  userText: string,
+  mcp: AiosMcpSession,
+  options: { repoPath?: string; workspaceId?: string } = {},
+): Promise<ChatTurn> {
+  const content = userText.trim() || '(vazio)'
+  session.turns.push({ role: 'user', content, at: now() })
+
+  try {
+    const out = await mcp.runPipeline({
+      input: content,
+      repoPath: options.repoPath,
+      workspaceId: options.workspaceId,
+    })
+    const assistant: ChatTurn = {
+      role: 'assistant',
+      content: out.summary,
+      at: now(),
+      via: 'pipeline',
+    }
+    session.turns.push(assistant)
+    return assistant
+  } catch (err) {
+    session.turns.pop()
+    const msg = err instanceof Error ? err.message : String(err)
+    session.turns.push({ role: 'user', content, at: now() })
+    const assistant: ChatTurn = {
+      role: 'assistant',
+      content: `Pipeline falhou: ${msg}. Tenta \`companion run\` ou \`/run\`.`,
+      at: now(),
+      via: 'local',
+    }
+    session.turns.push(assistant)
+    return assistant
+  }
+}
 
 /**
  * Reply via AIOS `aios_provider_chat` (MCP). Fallback local se falhar.
