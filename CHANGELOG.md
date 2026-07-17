@@ -5,6 +5,10 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+### Added
+
+- `companion doctor`: checks `provider` (warn se DOWN) + `policies` (#73)
+
 ## [0.4.0] — 2026-07-17
 
 Marco **MCP completo** — providers, policies, inspeção de governação e memory clear. Sem voz / sem UX cinemática.
