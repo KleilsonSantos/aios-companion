@@ -20,7 +20,9 @@ import {
 } from './aios/mcp-client.ts'
 import {
   createSession,
+  isPipelineIntent,
   respondLocal,
+  respondWithPipeline,
   respondWithProvider,
 } from './conversation/manager.ts'
 import {
@@ -47,9 +49,9 @@ Uso:
   --cli     forçar CLI AIOS (só status / estado inicial)
   --local   chat só com respostas determinísticas (sem Ollama)
 
-  Chat (default): MCP session + aios_provider_chat; fallback local se provider down.
+  Chat (default): MCP session + aios_provider_chat; análise → pipeline; fallback local.
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
-  Run: núcleo AIOS via aios_run_pipeline (on-demand).
+  Run: núcleo AIOS via aios_run_pipeline (on-demand; também auto no chat).
   Gov: aios_governance_status (health + attention).
   Decide: aios_governance_record (log de decisões).
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
@@ -427,11 +429,11 @@ async function cmdChat(
   const session = createSession(state)
   const mode =
     localOnly || !mcp
-      ? 'local'
-      : 'provider (MCP aios_provider_chat; fallback local)'
+      ? 'local (análise tenta MCP on-demand)'
+      : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · /run · /gov · /decide · /audit · /memory · sem voz)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -543,11 +545,32 @@ async function cmdChat(
         }
         continue
       }
+      if (isPipelineIntent(line)) {
+        try {
+          const pipeMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await pipeMcp.connect()
+          const turn = await respondWithPipeline(session, line, pipeMcp, {
+            repoPath: process.cwd(),
+          })
+          console.log(`companion · pipeline> ${turn.content}\n`)
+          if (!mcp) await pipeMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · pipeline> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       const turn =
         mcp && !localOnly
           ? await respondWithProvider(session, line, mcp)
           : respondLocal(session, line)
-      const tag = turn.via === 'provider' ? ' · provider' : ' · local'
+      const tag =
+        turn.via === 'provider'
+          ? ' · provider'
+          : turn.via === 'pipeline'
+            ? ' · pipeline'
+            : ' · local'
       console.log(`companion${tag}> ${turn.content}\n`)
     }
   } finally {
