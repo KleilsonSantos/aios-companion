@@ -1,6 +1,6 @@
 {
   "name": "aios-companion",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "AIOS Companion — Conversation Manager; consome o control plane AIOS (ADR-0014)",
