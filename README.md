@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Versão:** `0.4.0` — [CHANGELOG](./CHANGELOG.md)
+**Versão:** `0.5.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
@@ -25,7 +25,7 @@ Visão UX futura (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMA
 
 ## Pré-requisitos
 
-1. Checkout do AIOS (`ai-operating-system`) com `v0.18.0+`
+1. Checkout do AIOS (`ai-operating-system`) com `v0.23.0+`
 2. Node ≥ 22.13
 3. `AIOS_HOME` apontando para o monorepo AIOS
 
@@ -38,7 +38,7 @@ export AIOS_HOME=/path/to/ai-operating-system
 ```bash
 pnpm install
 pnpm companion status           # MCP (fallback CLI) → aios_operational_state
-pnpm companion doctor           # check-up (contract + state + gov + provider + policies)
+pnpm companion doctor           # check-up (contract + state + gov + consumption + provider + policies)
 pnpm companion status --mcp     # forçar MCP stdio
 pnpm companion chat             # replies via provider; "analisa…" → pipeline
 pnpm companion chat --local     # só respostas determinísticas
