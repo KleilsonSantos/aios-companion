@@ -11,6 +11,7 @@ import {
 import {
   AiosMcpSession,
   auditDocsMcp,
+  compilePromptMcp,
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
   governanceRecordMcp,
@@ -46,6 +47,7 @@ Uso:
   companion audit [--json] [--repo path] [--workspace id]
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
   companion memory remember [workspace] "<nota>" [--tag t] [--json]
+  companion brief "<intent>" [--json] [--repo path] [--workspace id] [--limit n]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -59,10 +61,11 @@ Uso:
   Decide: aios_governance_record (log de decisões).
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
   Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
+  Brief: aios_compile_prompt (intent → brief governado; alias: compile).
 
 Env:
   AIOS_HOME        path do monorepo ai-operating-system
-  AIOS_WORKSPACE   default workspace id (memory/run)
+  AIOS_WORKSPACE   default workspace id (memory/run/brief)
 `)
 }
 
@@ -403,6 +406,52 @@ async function cmdMemory(argv: string[]): Promise<void> {
   process.exitCode = 1
 }
 
+async function cmdBrief(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    return argv[i + 1]
+  }
+  const flagNames = new Set([
+    '--repo',
+    '--workspace',
+    '--limit',
+    '--json',
+  ])
+  const input = argv
+    .filter((a, i) => {
+      if (a.startsWith('-')) return false
+      if (i > 0 && flagNames.has(argv[i - 1]!)) return false
+      return true
+    })
+    .join(' ')
+    .trim()
+  if (!input) {
+    console.error(
+      'Uso: companion brief "<intent>" [--json] [--repo path] [--workspace id] [--limit n]',
+    )
+    process.exitCode = 1
+    return
+  }
+  const limitRaw = flagVal('--limit')
+  const home = resolveAiosHome()
+  const out = await compilePromptMcp({
+    input,
+    aiosHome: home,
+    repoPath: flagVal('--repo'),
+    workspaceId: flagVal('--workspace') || process.env.AIOS_WORKSPACE,
+    memoryLimit: limitRaw ? Number(limitRaw) : undefined,
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  console.log('')
+  console.log(out.brief)
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -451,7 +500,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /brief · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -460,6 +509,32 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (line.trim().startsWith('/brief ') || line.trim().startsWith('/compile ')) {
+        const prefix = line.trim().startsWith('/brief ') ? '/brief ' : '/compile '
+        const intent = line.trim().slice(prefix.length).trim()
+        if (!intent) {
+          console.log('companion> Uso: /brief <intent curto>\n')
+          continue
+        }
+        try {
+          const briefMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await briefMcp.connect()
+          const out = await briefMcp.compilePrompt({
+            input: intent,
+            repoPath: process.cwd(),
+            workspaceId: process.env.AIOS_WORKSPACE,
+          })
+          console.log(`companion · brief> ${out.summary}\n`)
+          console.log(out.brief)
+          console.log('')
+          if (!mcp) await briefMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · brief> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim() === '/audit') {
         try {
           const audMcp = mcp ?? new AiosMcpSession(home)
@@ -639,6 +714,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'memory' || cmd === 'mem') {
     await cmdMemory(argv.slice(1))
+    return
+  }
+  if (cmd === 'brief' || cmd === 'compile') {
+    await cmdBrief(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

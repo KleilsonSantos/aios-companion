@@ -96,6 +96,16 @@ export type DocsAuditResult = {
   raw: unknown
 }
 
+export type CompilePromptResult = {
+  brief: string
+  intent?: string
+  workspaceId?: string
+  repoPath?: string
+  stats?: Record<string, unknown>
+  summary: string
+  raw: unknown
+}
+
 /** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
 export const EXPECTED_CONTRACT_VERSION = '1'
 
@@ -480,6 +490,61 @@ export class AiosMcpSession {
     }
   }
 
+  /**
+   * Prompt Engine via MCP — intent curto → brief governado (policies + memory + KG).
+   * Não duplica o engine (#59 / Companion #43).
+   */
+  async compilePrompt(options: {
+    input: string
+    workspaceId?: string
+    repoPath?: string
+    memoryLimit?: number
+  }): Promise<CompilePromptResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_compile_prompt',
+      arguments: {
+        input: options.input,
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.memoryLimit != null ? { memoryLimit: options.memoryLimit } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      brief?: string
+      intent?: string
+      workspaceId?: string
+      repoPath?: string
+      stats?: Record<string, unknown>
+    }
+    const brief = raw.brief || text
+    const chars = typeof brief === 'string' ? brief.length : 0
+    const statsBits = raw.stats
+      ? Object.entries(raw.stats)
+          .slice(0, 4)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' · ')
+      : ''
+    return {
+      brief,
+      intent: raw.intent,
+      workspaceId: raw.workspaceId,
+      repoPath: raw.repoPath,
+      stats: raw.stats,
+      summary: [
+        `brief · ${chars} chars`,
+        raw.intent ? `intent=${raw.intent}` : null,
+        statsBits || null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -604,6 +669,25 @@ export async function auditDocsMcp(
       repoPath: options.repoPath,
       workspaceId: options.workspaceId,
     })
+  } finally {
+    await session.close()
+  }
+}
+
+/** One-shot Prompt Engine via MCP. */
+export async function compilePromptMcp(
+  options: {
+    input: string
+    aiosHome?: string
+    workspaceId?: string
+    repoPath?: string
+    memoryLimit?: number
+  },
+): Promise<CompilePromptResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.compilePrompt(options)
   } finally {
     await session.close()
   }
