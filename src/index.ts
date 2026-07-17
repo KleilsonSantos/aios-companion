@@ -15,9 +15,13 @@ import {
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
   governanceRecordMcp,
+  listWorkspacesMcp,
   memoryRecallMcp,
   memoryRememberMcp,
   runPipelineMcp,
+  workspaceRemoveMcp,
+  workspaceUpsertMcp,
+  workspaceValidateMcp,
 } from './aios/mcp-client.ts'
 import { runDoctor } from './aios/doctor.ts'
 import {
@@ -48,6 +52,10 @@ Uso:
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
   companion memory remember [workspace] "<nota>" [--tag t] [--json]
   companion brief "<intent>" [--json] [--repo path] [--workspace id] [--limit n]
+  companion workspaces [list] [--json]
+  companion workspaces add <id> <path> [--name n] [--tag t] [--default] [--json]
+  companion workspaces remove <id> [--json]
+  companion workspaces validate [id] [--json]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -62,6 +70,7 @@ Uso:
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
   Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
   Brief: aios_compile_prompt (intent → brief governado; alias: compile).
+  Workspaces: aios_list_workspaces / aios_workspace_* (alias: ws).
 
 Env:
   AIOS_HOME        path do monorepo ai-operating-system
@@ -452,6 +461,119 @@ async function cmdBrief(argv: string[]): Promise<void> {
   console.log(out.brief)
 }
 
+async function cmdWorkspaces(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string, from: string[]): string | undefined => {
+    const i = from.indexOf(name)
+    if (i < 0) return undefined
+    return from[i + 1]
+  }
+  const home = resolveAiosHome()
+  const sub = argv[0]
+  const rest = argv.slice(1)
+
+  const isList =
+    !sub ||
+    sub === 'list' ||
+    sub === 'ls' ||
+    sub.startsWith('-')
+
+  if (isList) {
+    const args = sub && !sub.startsWith('-') ? rest : argv
+    const out = await listWorkspacesMcp({
+      aiosHome: home,
+      workspacesPath: flagVal('--path', args),
+    })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    for (const w of out.workspaces) {
+      const mark = w.default ? ' *' : ''
+      const tags = w.tags?.length ? ` [${w.tags.join(', ')}]` : ''
+      console.log(
+        `  ${w.id || '?'}${mark}  ${w.repoPath || w.path || '?'}${tags}`,
+      )
+    }
+    return
+  }
+
+  if (sub === 'add' || sub === 'upsert' || sub === 'register') {
+    const nonFlags = rest.filter(
+      (a, i) =>
+        !a.startsWith('-') &&
+        (i === 0 || !['--name', '--tag', '--path'].includes(rest[i - 1]!)),
+    )
+    const id = nonFlags[0]
+    const path = nonFlags[1]
+    if (!id || !path) {
+      console.error(
+        'Uso: companion workspaces add <id> <path> [--name n] [--tag t] [--default]',
+      )
+      process.exitCode = 1
+      return
+    }
+    const tags = rest.includes('--tag')
+      ? rest.filter((a, i) => i > 0 && rest[i - 1] === '--tag' && !a.startsWith('-'))
+      : undefined
+    const out = await workspaceUpsertMcp({
+      aiosHome: home,
+      id,
+      path,
+      name: flagVal('--name', rest),
+      tags: tags?.length ? tags : undefined,
+      makeDefault: rest.includes('--default'),
+    })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    return
+  }
+
+  if (sub === 'remove' || sub === 'rm' || sub === 'delete') {
+    const id = rest.find((a) => !a.startsWith('-'))
+    if (!id) {
+      console.error('Uso: companion workspaces remove <id>')
+      process.exitCode = 1
+      return
+    }
+    const out = await workspaceRemoveMcp({ aiosHome: home, id })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    if (!out.removed) process.exitCode = 1
+    return
+  }
+
+  if (sub === 'validate' || sub === 'check') {
+    const id = rest.find((a) => !a.startsWith('-'))
+    const out = await workspaceValidateMcp({ aiosHome: home, id })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    for (const w of out.workspaces) {
+      const sig = w.signals?.length ? ` (${w.signals.join(', ')})` : ''
+      console.log(
+        `  [${w.ok === false ? 'fail' : 'ok'}] ${w.id || '?'}${sig}`,
+      )
+    }
+    if (!out.ok) process.exitCode = 1
+    return
+  }
+
+  console.error(
+    'Uso: companion workspaces [list|add|remove|validate] …',
+  )
+  process.exitCode = 1
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -500,7 +622,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /brief · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /brief · /workspaces · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -509,6 +631,30 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (
+        line.trim() === '/workspaces' ||
+        line.trim() === '/ws' ||
+        line.trim().startsWith('/workspaces ') ||
+        line.trim().startsWith('/ws ')
+      ) {
+        try {
+          const wsMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await wsMcp.connect()
+          const out = await wsMcp.listWorkspaces()
+          console.log(`companion · workspaces> ${out.summary}`)
+          for (const w of out.workspaces.slice(0, 12)) {
+            const mark = w.default ? ' *' : ''
+            console.log(`  ${w.id || '?'}${mark}  ${w.repoPath || w.path || '?'}`)
+          }
+          console.log('')
+          if (!mcp) await wsMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · workspaces> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim().startsWith('/brief ') || line.trim().startsWith('/compile ')) {
         const prefix = line.trim().startsWith('/brief ') ? '/brief ' : '/compile '
         const intent = line.trim().slice(prefix.length).trim()
@@ -718,6 +864,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'brief' || cmd === 'compile') {
     await cmdBrief(argv.slice(1))
+    return
+  }
+  if (cmd === 'workspaces' || cmd === 'workspace' || cmd === 'ws') {
+    await cmdWorkspaces(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)
