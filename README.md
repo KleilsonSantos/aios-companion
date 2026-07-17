@@ -19,6 +19,8 @@ O **AIOS governa**; o **Companion conversa** — Conversation Manager + MCP/CLI,
 
 Canónico no AIOS: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md) · [guia](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/guides/control-plane-companion.md).
 
+Visão UX futura (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMATIC.md) · issue [#37](https://github.com/KleilsonSantos/aios-companion/issues/37).
+
 ## Pré-requisitos
 
 1. Checkout do AIOS (`ai-operating-system`) com `v0.18.0+`
