@@ -12,6 +12,7 @@ import {
   AiosMcpSession,
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
+  governanceRecordMcp,
   memoryRecallMcp,
   memoryRememberMcp,
   runPipelineMcp,
@@ -36,6 +37,7 @@ Uso:
   companion caps [git|github] [--json]
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
   companion gov [--json] [--provider id]
+  companion decide "<resumo>" [--kind note] [--verdict info|pass|fail] [--json]
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
   companion memory remember [workspace] "<nota>" [--tag t] [--json]
 
@@ -47,6 +49,7 @@ Uso:
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand).
   Gov: aios_governance_status (health + attention).
+  Decide: aios_governance_record (log de decisões).
   Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
 
 Env:
@@ -222,6 +225,49 @@ async function cmdGov(argv: string[]): Promise<void> {
   if (out.hasErrors) process.exitCode = 1
 }
 
+async function cmdDecide(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    return argv[i + 1]
+  }
+  const flagNames = new Set(['--kind', '--verdict', '--json', '--policy'])
+  const summaryParts = argv.filter((a, i) => {
+    if (a.startsWith('-')) return false
+    if (i > 0 && flagNames.has(argv[i - 1]!)) return false
+    return true
+  })
+  const summary = summaryParts.join(' ').trim()
+  if (!summary) {
+    console.error(
+      'Uso: companion decide "<resumo>" [--kind note] [--verdict info|pass|fail]',
+    )
+    process.exitCode = 1
+    return
+  }
+  const verdictRaw = flagVal('--verdict')
+  const verdict =
+    verdictRaw === 'pass' || verdictRaw === 'fail' || verdictRaw === 'info'
+      ? verdictRaw
+      : undefined
+  const policy = flagVal('--policy')
+  const home = resolveAiosHome()
+  const out = await governanceRecordMcp({
+    aiosHome: home,
+    summary,
+    kind: flagVal('--kind'),
+    verdict,
+    policyIds: policy ? [policy] : undefined,
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  if (!out.ok) process.exitCode = 1
+}
+
 async function cmdMemory(argv: string[]): Promise<void> {
   const sub = argv[0]
   const rest = argv.slice(1)
@@ -354,7 +400,7 @@ async function cmdChat(
       : 'provider (MCP aios_provider_chat; fallback local)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · /run · /gov · /memory · sem voz)\n')
+  console.log('(Ctrl+C /quit · /run · /gov · /decide · /memory · sem voz)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -363,6 +409,29 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (line.trim().startsWith('/decide ')) {
+        const summary = line.trim().slice('/decide '.length).trim()
+        if (!summary) {
+          console.log('companion> Uso: /decide <resumo curto>\n')
+          continue
+        }
+        try {
+          const decMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await decMcp.connect()
+          const out = await decMcp.governanceRecord({
+            summary,
+            kind: 'note',
+            verdict: 'info',
+          })
+          console.log(`companion · decide> ${out.summary}\n`)
+          if (!mcp) await decMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · decide> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim() === '/memory' || line.trim().startsWith('/memory ')) {
         const ws =
           line.trim().slice('/memory'.length).trim() ||
@@ -464,6 +533,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'gov' || cmd === 'governance') {
     await cmdGov(argv.slice(1))
+    return
+  }
+  if (cmd === 'decide' || cmd === 'decision') {
+    await cmdDecide(argv.slice(1))
     return
   }
   if (cmd === 'memory' || cmd === 'mem') {

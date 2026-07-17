@@ -9,7 +9,7 @@
 
 ## Contratos estáveis (consumir)
 
-1. MCP `@aios/mcp` — tools `aios_*` (`aios_operational_state`, `aios_governance_status`, `aios_memory_*`, `aios_provider_chat`, `aios_run_pipeline`, …)
+1. MCP `@aios/mcp` — tools `aios_*` (`aios_operational_state`, `aios_governance_status`, `aios_governance_record`, `aios_memory_*`, `aios_provider_chat`, `aios_run_pipeline`, …)
 2. CLI `aios` — `--operational-state`, `--governance-status`, …
 3. Pipeline — via MCP `aios_run_pipeline` / `companion run` (não importar `engines/*`)
 

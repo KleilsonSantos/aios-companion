@@ -42,6 +42,7 @@ pnpm companion caps git         # branch/status on-demand
 pnpm companion caps github      # PRs abertos via `gh` (se autenticado)
 pnpm companion run "Analise meu projeto."   # núcleo AIOS (aios_run_pipeline)
 pnpm companion gov                  # health + attention (aios_governance_status)
+pnpm companion decide "aceitar CI mínimo" --verdict info
 pnpm companion memory recall        # memória do workspace (default: aios)
 pnpm companion memory remember "nota curta"
 ```

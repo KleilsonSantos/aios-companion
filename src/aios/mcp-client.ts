@@ -82,6 +82,12 @@ export type MemoryRememberResult = {
   raw: unknown
 }
 
+export type GovernanceRecordResult = {
+  ok: boolean
+  summary: string
+  raw: unknown
+}
+
 /** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
 export class AiosMcpSession {
   private client: Client | null = null
@@ -353,6 +359,40 @@ export class AiosMcpSession {
     }
   }
 
+  /** Append decision to AIOS governance log (não duplica engine). */
+  async governanceRecord(options: {
+    summary: string
+    kind?: string
+    verdict?: 'pass' | 'fail' | 'info'
+    policyIds?: string[]
+  }): Promise<GovernanceRecordResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_governance_record',
+      arguments: {
+        summary: options.summary,
+        homePath: this.aiosHome,
+        ...(options.kind ? { kind: options.kind } : {}),
+        ...(options.verdict ? { verdict: options.verdict } : {}),
+        ...(options.policyIds?.length ? { policyIds: options.policyIds } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      ok?: boolean
+      entry?: { id?: string; kind?: string; verdict?: string }
+    }
+    const id = raw.entry?.id ? ` · ${raw.entry.id}` : ''
+    const kind = raw.entry?.kind ? ` · ${raw.entry.kind}` : ''
+    return {
+      ok: raw.ok !== false,
+      summary: `decision recorded${id}${kind}`,
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -440,6 +480,24 @@ export async function memoryRememberMcp(
   try {
     await session.connect()
     return await session.memoryRemember(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function governanceRecordMcp(
+  options: {
+    summary: string
+    aiosHome?: string
+    kind?: string
+    verdict?: 'pass' | 'fail' | 'info'
+    policyIds?: string[]
+  },
+): Promise<GovernanceRecordResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.governanceRecord(options)
   } finally {
     await session.close()
   }

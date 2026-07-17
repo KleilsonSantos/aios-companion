@@ -126,3 +126,29 @@ describe('AiosMcpSession.memory', () => {
     assert.match(out.summary, /e1/)
   })
 })
+
+describe('AiosMcpSession.governanceRecord', () => {
+  it('resume ok e id', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: true,
+              entry: { id: 'd1', kind: 'note', verdict: 'info' },
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.governanceRecord({
+      summary: 'aceitar companion CI',
+      kind: 'note',
+      verdict: 'info',
+    })
+    assert.equal(out.ok, true)
+    assert.match(out.summary, /d1/)
+  })
+})
