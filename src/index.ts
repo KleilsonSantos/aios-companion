@@ -11,6 +11,7 @@ import {
 import {
   AiosMcpSession,
   auditDocsMcp,
+  buildKnowledgeMcp,
   compilePromptMcp,
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
@@ -58,6 +59,7 @@ Uso:
   companion workspaces add <id> <path> [--name n] [--tag t] [--default] [--json]
   companion workspaces remove <id> [--json]
   companion workspaces validate [id] [--json]
+  companion knowledge [--json] [--repo path] [--workspace id] [--full]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -74,6 +76,7 @@ Uso:
   Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
   Brief: aios_compile_prompt (intent → brief governado; alias: compile).
   Workspaces: aios_list_workspaces / aios_workspace_* (alias: ws).
+  Knowledge: aios_build_knowledge (mapa heurístico do repo; alias: kg).
 
 Env:
   AIOS_HOME        path do monorepo ai-operating-system
@@ -632,6 +635,36 @@ async function cmdWorkspaces(argv: string[]): Promise<void> {
   process.exitCode = 1
 }
 
+async function cmdKnowledge(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    return argv[i + 1]
+  }
+  const home = resolveAiosHome()
+  const out = await buildKnowledgeMcp({
+    aiosHome: home,
+    repoPath: flagVal('--repo'),
+    workspaceId: flagVal('--workspace') || process.env.AIOS_WORKSPACE,
+    full: argv.includes('--full'),
+  })
+  if (jsonOnly || argv.includes('--full')) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  if (out.repoPath) console.log(`repo: ${out.repoPath}`)
+  if (out.kinds) {
+    for (const [kind, n] of Object.entries(out.kinds).slice(0, 12)) {
+      console.log(`  ${kind}: ${n}`)
+    }
+  }
+  if (out.signals?.length) {
+    console.log(`signals: ${out.signals.slice(0, 8).join(', ')}`)
+  }
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -680,7 +713,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -689,6 +722,34 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (
+        line.trim() === '/knowledge' ||
+        line.trim() === '/kg' ||
+        line.trim().startsWith('/knowledge ') ||
+        line.trim().startsWith('/kg ')
+      ) {
+        try {
+          const kgMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await kgMcp.connect()
+          const out = await kgMcp.buildKnowledge({
+            repoPath: process.cwd(),
+            workspaceId: process.env.AIOS_WORKSPACE,
+          })
+          console.log(`companion · knowledge> ${out.summary}`)
+          if (out.kinds) {
+            for (const [kind, n] of Object.entries(out.kinds).slice(0, 6)) {
+              console.log(`  ${kind}: ${n}`)
+            }
+          }
+          console.log('')
+          if (!mcp) await kgMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · knowledge> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim().startsWith('/run-all ')) {
         const intent = line.trim().slice('/run-all '.length).trim()
         if (!intent) {
@@ -958,6 +1019,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'workspaces' || cmd === 'workspace' || cmd === 'ws') {
     await cmdWorkspaces(argv.slice(1))
+    return
+  }
+  if (cmd === 'knowledge' || cmd === 'kg' || cmd === 'know') {
+    await cmdKnowledge(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

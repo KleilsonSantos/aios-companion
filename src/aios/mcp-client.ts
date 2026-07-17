@@ -162,6 +162,16 @@ export type WorkspaceValidateResult = {
   raw: unknown
 }
 
+export type KnowledgeBuildResult = {
+  repoPath?: string
+  nodeCount?: number
+  edgeCount?: number
+  kinds?: Record<string, number>
+  signals?: string[]
+  summary: string
+  raw: unknown
+}
+
 /** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
 export const EXPECTED_CONTRACT_VERSION = '1'
 
@@ -791,6 +801,63 @@ export class AiosMcpSession {
     return { passed, summary, results, raw }
   }
 
+  /**
+   * Knowledge Graph heurístico via MCP — mapa do repo (sem embeddings) (#52).
+   */
+  async buildKnowledge(options: {
+    repoPath?: string
+    workspaceId?: string
+    full?: boolean
+  } = {}): Promise<KnowledgeBuildResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_build_knowledge',
+      arguments: {
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+        ...(options.full ? { full: true } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      repoPath?: string
+      nodeCount?: number
+      edgeCount?: number
+      kinds?: Record<string, number>
+      signals?: string[]
+      nodes?: unknown[]
+      edges?: unknown[]
+    }
+    const nodeCount =
+      raw.nodeCount ?? (Array.isArray(raw.nodes) ? raw.nodes.length : undefined)
+    const edgeCount =
+      raw.edgeCount ?? (Array.isArray(raw.edges) ? raw.edges.length : undefined)
+    const kindsBits = raw.kinds
+      ? Object.entries(raw.kinds)
+          .slice(0, 6)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(' · ')
+      : ''
+    return {
+      repoPath: raw.repoPath,
+      nodeCount,
+      edgeCount,
+      kinds: raw.kinds,
+      signals: raw.signals,
+      summary: [
+        'knowledge',
+        nodeCount != null ? `nodes=${nodeCount}` : null,
+        edgeCount != null ? `edges=${edgeCount}` : null,
+        kindsBits || null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -1009,6 +1076,28 @@ export async function runAcrossWorkspacesMcp(
   try {
     await session.connect()
     return await session.runAcrossWorkspaces(options)
+  } finally {
+    await session.close()
+  }
+}
+
+/** One-shot Knowledge Graph via MCP. */
+export async function buildKnowledgeMcp(
+  options: {
+    aiosHome?: string
+    repoPath?: string
+    workspaceId?: string
+    full?: boolean
+  } = {},
+): Promise<KnowledgeBuildResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.buildKnowledge({
+      repoPath: options.repoPath,
+      workspaceId: options.workspaceId,
+      full: options.full,
+    })
   } finally {
     await session.close()
   }
