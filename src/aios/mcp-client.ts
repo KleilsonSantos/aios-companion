@@ -68,6 +68,20 @@ export type GovernanceStatusResult = {
   raw: unknown
 }
 
+export type MemoryRecallResult = {
+  workspaceId: string
+  count: number
+  summary: string
+  entries: Array<{ content?: string; tags?: string[]; at?: string; id?: string }>
+  raw: unknown
+}
+
+export type MemoryRememberResult = {
+  ok: boolean
+  summary: string
+  raw: unknown
+}
+
 /** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
 export class AiosMcpSession {
   private client: Client | null = null
@@ -276,6 +290,69 @@ export class AiosMcpSession {
     }
   }
 
+  async memoryRecall(options: {
+    workspaceId: string
+    limit?: number
+    query?: string
+    tag?: string
+  }): Promise<MemoryRecallResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_memory_recall',
+      arguments: {
+        workspaceId: options.workspaceId,
+        ...(options.limit != null ? { limit: options.limit } : {}),
+        ...(options.query ? { query: options.query } : {}),
+        ...(options.tag ? { tag: options.tag } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      workspaceId?: string
+      entries?: Array<{ content?: string; tags?: string[]; at?: string; id?: string }>
+      count?: number
+    }
+    const entries = raw.entries || []
+    const count = raw.count ?? entries.length
+    return {
+      workspaceId: raw.workspaceId || options.workspaceId,
+      count,
+      summary:
+        count === 0
+          ? `memory ${options.workspaceId}: vazio`
+          : `memory ${options.workspaceId}: ${count} entrada(s)`,
+      entries,
+      raw,
+    }
+  }
+
+  async memoryRemember(options: {
+    workspaceId: string
+    content: string
+    tags?: string[]
+  }): Promise<MemoryRememberResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_memory_remember',
+      arguments: {
+        workspaceId: options.workspaceId,
+        content: options.content,
+        ...(options.tags?.length ? { tags: options.tags } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as { ok?: boolean; entry?: { id?: string } }
+    return {
+      ok: raw.ok !== false,
+      summary: `remembered · ${options.workspaceId}${raw.entry?.id ? ` · ${raw.entry.id}` : ''}`,
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -328,6 +405,41 @@ export async function fetchGovernanceStatusMcp(
   try {
     await session.connect()
     return await session.governanceStatus({ provider: options.provider })
+  } finally {
+    await session.close()
+  }
+}
+
+export async function memoryRecallMcp(
+  options: {
+    workspaceId: string
+    aiosHome?: string
+    limit?: number
+    query?: string
+    tag?: string
+  },
+): Promise<MemoryRecallResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.memoryRecall(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function memoryRememberMcp(
+  options: {
+    workspaceId: string
+    content: string
+    aiosHome?: string
+    tags?: string[]
+  },
+): Promise<MemoryRememberResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.memoryRemember(options)
   } finally {
     await session.close()
   }

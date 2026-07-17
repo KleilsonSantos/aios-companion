@@ -83,3 +83,46 @@ describe('AiosMcpSession.governanceStatus', () => {
     assert.match(out.summary, /1 error/)
   })
 })
+
+describe('AiosMcpSession.memory', () => {
+  it('recall resume entradas', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              workspaceId: 'aios',
+              count: 1,
+              entries: [{ content: 'nota', id: 'm1' }],
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.memoryRecall({ workspaceId: 'aios' })
+    assert.equal(out.count, 1)
+    assert.match(out.summary, /1 entrada/)
+  })
+
+  it('remember marca ok', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ ok: true, entry: { id: 'e1' } }),
+          },
+        ],
+      }),
+    }
+    const out = await session.memoryRemember({
+      workspaceId: 'aios',
+      content: 'hello',
+    })
+    assert.equal(out.ok, true)
+    assert.match(out.summary, /e1/)
+  })
+})
