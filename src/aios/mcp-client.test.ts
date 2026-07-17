@@ -125,6 +125,30 @@ describe('AiosMcpSession.memory', () => {
     assert.equal(out.ok, true)
     assert.match(out.summary, /e1/)
   })
+
+  it('clear resume cleared', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_memory_clear')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                cleared: true,
+                workspaceId: 'aios',
+                remaining: [],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.memoryClear({ workspaceId: 'aios' })
+    assert.equal(out.cleared, true)
+    assert.match(out.summary, /cleared · aios/)
+  })
 })
 
 describe('AiosMcpSession.governanceRecord', () => {
