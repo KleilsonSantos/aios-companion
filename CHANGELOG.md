@@ -5,9 +5,19 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-17
+
+Control-plane **consumption + governance v2** surface. Requires AIOS **v0.23.0+**.
+
 ### Added
 
-- `companion doctor`: checks `provider` (warn se DOWN) + `policies` (#73)
+- `companion doctor`: `consumption` check (`providerChat`) + `governance_v2` when fail verdicts (#76)
+- `companion gov` / `/gov`: print consumption + exposed providers
+- `gov audit`: fail verdicts / missing core must / unknown policy refs in summary (#76)
+
+### Changed
+
+- MCP client parses `metrics.providerChat` and governance audit v2 fields from AIOS
 
 ## [0.4.0] — 2026-07-17
 

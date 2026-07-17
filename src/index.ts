@@ -337,6 +337,15 @@ async function cmdGov(argv: string[]): Promise<void> {
     if (out.decisionsCount != null) {
       console.log(`decisions: ${out.decisionsCount}`)
     }
+    if (out.failCount) {
+      console.log(`fail verdicts: ${out.failCount}`)
+    }
+    if (out.missingCoreMustIds?.length) {
+      console.log(`missing core must: ${out.missingCoreMustIds.join(', ')}`)
+    }
+    if (out.unknownPolicyIds?.length) {
+      console.log(`unknown policy refs: ${out.unknownPolicyIds.join(', ')}`)
+    }
     if (out.documentationOk !== undefined) {
       console.log(`docs: ${out.documentationOk ? 'ok' : 'drift'}`)
     }
@@ -357,6 +366,19 @@ async function cmdGov(argv: string[]): Promise<void> {
     console.log(JSON.stringify(out.raw, null, 2))
   } else {
     console.log(out.summary)
+    if (out.providerChat) {
+      console.log(
+        `consumption: ${out.providerChat.count} chat · ~${out.providerChat.totalTokens} tok` +
+          (out.providerChat.errorCount
+            ? ` · ${out.providerChat.errorCount} err`
+            : ''),
+      )
+    } else {
+      console.log('consumption: no provider.chat yet')
+    }
+    if (out.providers?.length) {
+      console.log(`providers: ${out.providers.join(', ')}`)
+    }
     const top = out.attention.slice(0, 8)
     for (const a of top) {
       console.log(
@@ -1154,6 +1176,11 @@ async function cmdChat(
           if (!mcp) await govMcp.connect()
           const out = await govMcp.governanceStatus()
           console.log(`companion · gov> ${out.summary}`)
+          if (out.providerChat) {
+            console.log(
+              `  consumption: ${out.providerChat.count} chat · ~${out.providerChat.totalTokens} tok`,
+            )
+          }
           for (const a of out.attention.slice(0, 5)) {
             console.log(`  [${a.severity || '?'}] ${a.title || a.id || '?'}`)
           }
