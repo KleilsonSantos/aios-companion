@@ -97,6 +97,44 @@ export async function runDoctor(
         ok: !gov.hasErrors,
         detail: gov.summary,
       })
+
+      // Consumption (AIOS provider.chat JSONL) — empty = info, chat errors = warn
+      if (gov.providerChat) {
+        const pc = gov.providerChat
+        const hasChatErr = pc.errorCount > 0
+        checks.push({
+          id: 'consumption',
+          ok: true,
+          severity: hasChatErr ? 'warn' : 'info',
+          detail: `${pc.count} chat · ~${pc.totalTokens} tok${
+            hasChatErr ? ` · ${pc.errorCount} err` : ''
+          }${gov.providers?.length ? ` · providers=${gov.providers.join(',')}` : ''}`,
+        })
+      } else {
+        checks.push({
+          id: 'consumption',
+          ok: true,
+          severity: 'info',
+          detail:
+            'no provider.chat events yet (run aios_provider_chat / companion chat)',
+        })
+      }
+
+      const govFail = gov.attention.filter(
+        (a) =>
+          a.severity === 'error' &&
+          (a.id === 'gov-fail-verdicts' || a.id?.startsWith('gov-')),
+      )
+      if (govFail.length > 0) {
+        checks.push({
+          id: 'governance_v2',
+          ok: false,
+          detail: govFail
+            .slice(0, 3)
+            .map((a) => a.title || a.id)
+            .join(' · '),
+        })
+      }
     } catch (err) {
       checks.push({
         id: 'governance',

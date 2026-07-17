@@ -50,7 +50,7 @@ describe('AiosMcpSession.runPipeline', () => {
 })
 
 describe('AiosMcpSession.governanceStatus', () => {
-  it('resume attention e hasErrors', async () => {
+  it('resume attention, consumption e hasErrors', async () => {
     const session = new AiosMcpSession('/tmp')
     ;(session as unknown as { client: unknown }).client = {
       callTool: async () => ({
@@ -62,6 +62,17 @@ describe('AiosMcpSession.governanceStatus', () => {
               workspaces: [{ id: 'a' }],
               policies: { count: 3 },
               provider: { ok: false },
+              exposed: { providers: ['ollama', 'openai', 'anthropic'] },
+              metrics: {
+                note: 'provider.chat: 2',
+                providerChat: {
+                  count: 2,
+                  errorCount: 0,
+                  promptTokens: 10,
+                  completionTokens: 5,
+                  totalTokens: 15,
+                },
+              },
               attention: [
                 {
                   id: 'provider-down',
@@ -79,8 +90,13 @@ describe('AiosMcpSession.governanceStatus', () => {
     assert.equal(out.hasErrors, true)
     assert.equal(out.workspaces, 1)
     assert.equal(out.policies, 3)
+    assert.equal(out.providerChat?.count, 2)
+    assert.equal(out.providerChat?.totalTokens, 15)
+    assert.deepEqual(out.providers, ['ollama', 'openai', 'anthropic'])
     assert.match(out.summary, /provider=down/)
     assert.match(out.summary, /1 error/)
+    assert.match(out.summary, /consumption: 2 chat/)
+    assert.match(out.summary, /providers=ollama,openai,anthropic/)
   })
 })
 
@@ -532,8 +548,16 @@ describe('AiosMcpSession.governanceAudit', () => {
               type: 'text',
               text: JSON.stringify({
                 ok: true,
-                policies: { mustIds: ['a', 'b'], count: 5 },
-                decisions: { count: 3 },
+                policies: {
+                  mustIds: ['a', 'b'],
+                  count: 5,
+                  missingCoreMustIds: ['docs-language-en'],
+                },
+                decisions: {
+                  count: 3,
+                  failCount: 1,
+                  unknownPolicyIds: ['nope'],
+                },
                 documentation: { ok: true, findingCount: 0 },
                 findings: [
                   {
@@ -551,7 +575,12 @@ describe('AiosMcpSession.governanceAudit', () => {
     const out = await session.governanceAudit()
     assert.equal(out.ok, true)
     assert.equal(out.mustIds.length, 2)
+    assert.equal(out.failCount, 1)
+    assert.deepEqual(out.missingCoreMustIds, ['docs-language-en'])
+    assert.deepEqual(out.unknownPolicyIds, ['nope'])
     assert.match(out.summary, /gov audit OK/)
+    assert.match(out.summary, /fail-verdicts=1/)
+    assert.match(out.summary, /missing-core=1/)
   })
 
   it('não throw quando isError + ok false', async () => {

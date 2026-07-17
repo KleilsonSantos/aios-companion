@@ -82,6 +82,17 @@ export type GovernanceStatusResult = {
   workspaces?: number
   policies?: number
   providerOk?: boolean
+  /** Aggregated provider.chat metrics from AIOS (#76 / AIOS ADR-0019). */
+  providerChat?: {
+    count: number
+    errorCount: number
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
+  /** Providers listed by control plane (`exposed.providers`). */
+  providers?: string[]
+  metricsNote?: string
   raw: unknown
 }
 
@@ -224,6 +235,9 @@ export type GovernanceAuditResult = {
   findings: Array<{ id?: string; severity?: string; title?: string; detail?: string }>
   mustIds: string[]
   decisionsCount?: number
+  failCount?: number
+  missingCoreMustIds?: string[]
+  unknownPolicyIds?: string[]
   documentationOk?: boolean
   raw: unknown
 }
@@ -268,7 +282,7 @@ export class AiosMcpSession {
     })
     const client = new Client({
       name: 'aios-companion',
-      version: '0.4.0',
+      version: '0.5.0',
     })
     await client.connect(transport)
     this.client = client
@@ -419,6 +433,17 @@ export class AiosMcpSession {
       workspaces?: unknown[]
       policies?: { count?: number }
       provider?: { ok?: boolean; provider?: string }
+      exposed?: { providers?: string[]; mcpTools?: string[] }
+      metrics?: {
+        note?: string
+        providerChat?: {
+          count?: number
+          errorCount?: number
+          promptTokens?: number
+          completionTokens?: number
+          totalTokens?: number
+        }
+      }
       attention?: Array<{
         id?: string
         severity?: string
@@ -432,9 +457,28 @@ export class AiosMcpSession {
     const ws = obj.workspaces?.length ?? 0
     const pol = obj.policies?.count ?? 0
     const providerOk = obj.provider?.ok
+    const pc = obj.metrics?.providerChat
+    const providerChat =
+      pc && typeof pc.count === 'number'
+        ? {
+            count: pc.count,
+            errorCount: pc.errorCount ?? 0,
+            promptTokens: pc.promptTokens ?? 0,
+            completionTokens: pc.completionTokens ?? 0,
+            totalTokens: pc.totalTokens ?? 0,
+          }
+        : undefined
+    const providers = obj.exposed?.providers
+    const consumption = providerChat
+      ? `consumption: ${providerChat.count} chat · ~${providerChat.totalTokens} tok${
+          providerChat.errorCount ? ` · ${providerChat.errorCount} err` : ''
+        }`
+      : 'consumption: no provider.chat yet'
     const summary = [
       `gov · workspaces=${ws} · policies=${pol}`,
       providerOk === undefined ? null : `provider=${providerOk ? 'ok' : 'down'}`,
+      providers?.length ? `providers=${providers.join(',')}` : null,
+      consumption,
       `attention: ${errors.length} error(s), ${warns.length} warn(s)`,
     ]
       .filter(Boolean)
@@ -446,6 +490,9 @@ export class AiosMcpSession {
       workspaces: ws,
       policies: pol,
       providerOk,
+      providerChat,
+      providers,
+      metricsNote: obj.metrics?.note,
       raw,
     }
   }
@@ -1108,8 +1155,16 @@ export class AiosMcpSession {
     }
     const obj = raw as {
       ok?: boolean
-      policies?: { mustIds?: string[]; count?: number }
-      decisions?: { count?: number }
+      policies?: {
+        mustIds?: string[]
+        count?: number
+        missingCoreMustIds?: string[]
+      }
+      decisions?: {
+        count?: number
+        failCount?: number
+        unknownPolicyIds?: string[]
+      }
       documentation?: { ok?: boolean; findingCount?: number }
       findings?: Array<{
         id?: string
@@ -1123,18 +1178,33 @@ export class AiosMcpSession {
     const ok = obj.ok === true
     const errors = findings.filter((f) => f.severity === 'error').length
     const warns = findings.filter((f) => f.severity === 'warn').length
+    const failCount = obj.decisions?.failCount
+    const missingCoreMustIds = obj.policies?.missingCoreMustIds
+    const unknownPolicyIds = obj.decisions?.unknownPolicyIds
     return {
       ok,
       findings,
       mustIds,
       decisionsCount: obj.decisions?.count,
+      failCount,
+      missingCoreMustIds,
+      unknownPolicyIds,
       documentationOk: obj.documentation?.ok,
       summary: [
         ok ? 'gov audit OK' : 'gov audit FAIL',
         `must=${mustIds.length}`,
+        missingCoreMustIds?.length
+          ? `missing-core=${missingCoreMustIds.length}`
+          : null,
         `decisions=${obj.decisions?.count ?? 0}`,
+        failCount ? `fail-verdicts=${failCount}` : null,
+        unknownPolicyIds?.length
+          ? `unknown-policy-refs=${unknownPolicyIds.length}`
+          : null,
         `findings: ${errors} error(s), ${warns} warn(s)`,
-      ].join(' · '),
+      ]
+        .filter(Boolean)
+        .join(' · '),
       raw,
     }
   }
