@@ -13,6 +13,8 @@ export type DoctorCheck = {
   id: string
   ok: boolean
   detail: string
+  /** warn = auxiliar (ex. Ollama DOWN) — não falha o doctor global */
+  severity?: 'error' | 'warn' | 'info'
 }
 
 export type DoctorReport = {
@@ -102,6 +104,50 @@ export async function runDoctor(
         detail: err instanceof Error ? err.message : String(err),
       })
     }
+
+    // Provider auxiliar: DOWN = warn (não falha doctor — Resource-Aware / #73)
+    try {
+      const health = await session.providerHealth()
+      if (health.ok) {
+        checks.push({
+          id: 'provider',
+          ok: true,
+          detail: health.summary,
+        })
+      } else {
+        checks.push({
+          id: 'provider',
+          ok: true,
+          severity: 'warn',
+          detail: `${health.summary} (auxiliar opcional)`,
+        })
+      }
+    } catch (err) {
+      checks.push({
+        id: 'provider',
+        ok: true,
+        severity: 'warn',
+        detail: `provider unreachable · ${err instanceof Error ? err.message : err} (auxiliar)`,
+      })
+    }
+
+    try {
+      const policies = await session.loadPolicies({ repoPath: aiosHome })
+      const mustOk = policies.mustIds.length > 0
+      checks.push({
+        id: 'policies',
+        ok: mustOk,
+        detail: mustOk
+          ? policies.summary
+          : `${policies.summary} · sem must policies`,
+      })
+    } catch (err) {
+      checks.push({
+        id: 'policies',
+        ok: false,
+        detail: err instanceof Error ? err.message : String(err),
+      })
+    }
   } catch (err) {
     checks.push({
       id: 'mcp_connect',
@@ -114,12 +160,13 @@ export async function runDoctor(
 
   const ok = checks.every((c) => c.ok)
   const failed = checks.filter((c) => !c.ok).map((c) => c.id)
+  const warns = checks.filter((c) => c.severity === 'warn').map((c) => c.id)
   return {
     ok,
     aiosHome,
     checks,
     summary: ok
-      ? `doctor OK · contract v${EXPECTED_CONTRACT_VERSION} · ${checks.length} checks`
+      ? `doctor OK · contract v${EXPECTED_CONTRACT_VERSION} · ${checks.length} checks${warns.length ? ` · warn: ${warns.join(', ')}` : ''}`
       : `doctor FAIL · ${failed.join(', ')}`,
   }
 }

@@ -38,7 +38,7 @@ export AIOS_HOME=/path/to/ai-operating-system
 ```bash
 pnpm install
 pnpm companion status           # MCP (fallback CLI) → aios_operational_state
-pnpm companion doctor           # check-up da ponte (contract + state + gov)
+pnpm companion doctor           # check-up (contract + state + gov + provider + policies)
 pnpm companion status --mcp     # forçar MCP stdio
 pnpm companion chat             # replies via provider; "analisa…" → pipeline
 pnpm companion chat --local     # só respostas determinísticas
