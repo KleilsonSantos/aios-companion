@@ -24,3 +24,5 @@
 ## Evolução
 
 Chat → Conversation Manager maduro → voz → capabilities/watchers (Resource-Aware).
+
+Visão UX cinemática (Jarvis / Minority Report) — **parked**: [`VISION-UX-CINEMATIC.md`](./VISION-UX-CINEMATIC.md) · [#37](https://github.com/KleilsonSantos/aios-companion/issues/37).
