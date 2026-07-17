@@ -58,6 +58,23 @@ export type PipelineRunResult = {
   raw: unknown
 }
 
+export type RunAcrossItem = {
+  workspaceId?: string
+  repoPath?: string
+  verdictPassed?: boolean
+  intentKind?: string
+  error?: string
+  knowledgeNodes?: number
+  memoryCount?: number
+}
+
+export type RunAcrossResult = {
+  passed: boolean
+  summary: string
+  results: RunAcrossItem[]
+  raw: unknown
+}
+
 export type GovernanceStatusResult = {
   summary: string
   hasErrors: boolean
@@ -727,6 +744,53 @@ export class AiosMcpSession {
     }
   }
 
+  /**
+   * Pipeline multi-repo via MCP — um intent em N workspaces (#49).
+   * isError no MCP quando algum verdict falha — ainda devolvemos JSON.
+   */
+  async runAcrossWorkspaces(options: {
+    input: string
+    workspaceIds?: string[]
+    scope?: string
+  }): Promise<RunAcrossResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_run_across_workspaces',
+      arguments: {
+        input: options.input,
+        homePath: this.aiosHome,
+        ...(options.workspaceIds?.length
+          ? { workspaceIds: options.workspaceIds }
+          : {}),
+        ...(options.scope ? { scope: options.scope } : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`run-all: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      input?: string
+      results?: RunAcrossItem[]
+    }
+    const results = obj.results || []
+    const failed = results.filter((r) => !r.verdictPassed || r.error)
+    const passed = failed.length === 0 && results.length > 0
+    const summary =
+      results.length === 0
+        ? 'run-all · nenhum workspace'
+        : passed
+          ? `run-all OK · ${results.length} workspace(s)`
+          : `run-all FAIL · ${failed.length}/${results.length} failed`
+    return { passed, summary, results, raw }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -927,6 +991,24 @@ export async function workspaceValidateMcp(
   try {
     await session.connect()
     return await session.workspaceValidate({ id: options.id })
+  } finally {
+    await session.close()
+  }
+}
+
+/** One-shot multi-repo pipeline via MCP. */
+export async function runAcrossWorkspacesMcp(
+  options: {
+    input: string
+    aiosHome?: string
+    workspaceIds?: string[]
+    scope?: string
+  },
+): Promise<RunAcrossResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.runAcrossWorkspaces(options)
   } finally {
     await session.close()
   }
