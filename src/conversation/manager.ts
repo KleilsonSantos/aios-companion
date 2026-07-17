@@ -34,6 +34,7 @@ export function createSession(state?: OperationalStateLite): ConversationSession
       'Não inventes policies — sugere consultar o control plane.',
       `Estado operacional: ${summary}${branch}`,
       'Voz e controlo de IDE/Docker estão fora de escopo neste MVP.',
+      'Capabilities: `companion caps` (git / github via CLI on-demand).',
       'Respostas curtas e práticas em português.',
     ].join('\n'),
     at: now(),
@@ -67,7 +68,13 @@ export function respondLocal(
       'Sem snapshot — corre `companion status`.'
   } else if (lower.includes('ajuda') || lower === 'help') {
     reply =
-      'Comandos: perguntar "status"; `companion status`; chat usa provider AIOS se disponível (Ollama). Voz ainda não.'
+      'Comandos: "status"; `companion status`; `companion caps git|github`; chat usa provider AIOS se disponível. Voz ainda não.'
+  } else if (lower.includes('github') || /\bprs?\b/.test(lower)) {
+    reply =
+      'GitHub: corre `companion caps github` (usa `gh` se autenticado). Não duplico APIs no Companion.'
+  } else if (/\bgit\b/.test(lower) || lower.includes('branch')) {
+    reply =
+      'Git: corre `companion caps git` (CLI ou snapshot AIOS). Sem watchers neste MVP.'
   } else {
     reply = [
       `Registei: “${content.slice(0, 200)}”.`,
