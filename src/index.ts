@@ -19,6 +19,8 @@ import {
   listWorkspacesMcp,
   memoryRecallMcp,
   memoryRememberMcp,
+  providerHealthMcp,
+  providerModelsMcp,
   runAcrossWorkspacesMcp,
   runPipelineMcp,
   workspaceRemoveMcp,
@@ -60,6 +62,8 @@ Uso:
   companion workspaces remove <id> [--json]
   companion workspaces validate [id] [--json]
   companion knowledge [--json] [--repo path] [--workspace id] [--full]
+  companion providers [health] [--json] [--provider id] [--url base]
+  companion providers models [--json] [--provider id] [--url base]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -77,6 +81,7 @@ Uso:
   Brief: aios_compile_prompt (intent → brief governado; alias: compile).
   Workspaces: aios_list_workspaces / aios_workspace_* (alias: ws).
   Knowledge: aios_build_knowledge (mapa heurístico do repo; alias: kg).
+  Providers: aios_provider_health / aios_provider_models (alias: provider).
 
 Env:
   AIOS_HOME        path do monorepo ai-operating-system
@@ -665,6 +670,66 @@ async function cmdKnowledge(argv: string[]): Promise<void> {
   }
 }
 
+async function cmdProviders(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const home = resolveAiosHome()
+  const sub = argv[0]
+  const providerId = (() => {
+    const i = argv.indexOf('--provider')
+    return i >= 0 ? argv[i + 1] : undefined
+  })()
+  const baseUrl = (() => {
+    const i = argv.indexOf('--url')
+    const j = argv.indexOf('--base-url')
+    if (i >= 0) return argv[i + 1]
+    if (j >= 0) return argv[j + 1]
+    return undefined
+  })()
+
+  if (sub === 'models' || sub === 'list' || sub === 'ls') {
+    const out = await providerModelsMcp({
+      aiosHome: home,
+      provider: providerId,
+      baseUrl,
+    })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    for (const m of out.models.slice(0, 40)) {
+      const name = typeof m === 'string' ? m : m.name || '?'
+      console.log(`  - ${name}`)
+    }
+    if (out.models.length > 40) {
+      console.log(`  … +${out.models.length - 40} mais`)
+    }
+    return
+  }
+
+  // default / health
+  const out = await providerHealthMcp({
+    aiosHome: home,
+    provider: providerId,
+    baseUrl,
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  if (out.baseUrl) console.log(`url: ${out.baseUrl}`)
+  if (out.ok && out.models?.length) {
+    for (const m of out.models.slice(0, 12)) {
+      console.log(`  - ${m}`)
+    }
+    if (out.models.length > 12) {
+      console.log(`  … +${out.models.length - 12} mais`)
+    }
+  }
+  if (!out.ok) process.exitCode = 1
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -713,7 +778,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -722,6 +787,41 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (
+        line.trim() === '/providers' ||
+        line.trim() === '/provider' ||
+        line.trim().startsWith('/providers ') ||
+        line.trim().startsWith('/provider ')
+      ) {
+        const rest = line.trim().replace(/^\/providers?\s*/, '').trim()
+        try {
+          const pMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await pMcp.connect()
+          if (rest === 'models' || rest.startsWith('models ')) {
+            const out = await pMcp.providerModels()
+            console.log(`companion · providers> ${out.summary}`)
+            for (const m of out.models.slice(0, 8)) {
+              const name = typeof m === 'string' ? m : m.name || '?'
+              console.log(`  - ${name}`)
+            }
+          } else {
+            const out = await pMcp.providerHealth()
+            console.log(`companion · providers> ${out.summary}`)
+            if (out.ok && out.models?.length) {
+              for (const m of out.models.slice(0, 5)) {
+                console.log(`  - ${m}`)
+              }
+            }
+          }
+          console.log('')
+          if (!mcp) await pMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · providers> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (
         line.trim() === '/knowledge' ||
         line.trim() === '/kg' ||
@@ -1023,6 +1123,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'knowledge' || cmd === 'kg' || cmd === 'know') {
     await cmdKnowledge(argv.slice(1))
+    return
+  }
+  if (cmd === 'providers' || cmd === 'provider') {
+    await cmdProviders(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

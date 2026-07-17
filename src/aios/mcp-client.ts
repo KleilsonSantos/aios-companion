@@ -172,6 +172,26 @@ export type KnowledgeBuildResult = {
   raw: unknown
 }
 
+export type ProviderHealthResult = {
+  ok: boolean
+  provider?: string
+  baseUrl?: string
+  models?: string[]
+  latencyMs?: number
+  error?: string
+  summary: string
+  raw: unknown
+}
+
+export type ProviderModelsResult = {
+  ok: boolean
+  provider?: string
+  count: number
+  models: Array<{ name?: string; size?: number } | string>
+  summary: string
+  raw: unknown
+}
+
 /** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
 export const EXPECTED_CONTRACT_VERSION = '1'
 
@@ -858,6 +878,88 @@ export class AiosMcpSession {
     }
   }
 
+  /**
+   * Health do provider auxiliar (default Ollama) — Resource-Aware: não instala (#58).
+   * isError no MCP quando ok=false — ainda devolvemos JSON.
+   */
+  async providerHealth(options: {
+    provider?: string
+    baseUrl?: string
+  } = {}): Promise<ProviderHealthResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_provider_health',
+      arguments: {
+        ...(options.provider ? { provider: options.provider } : {}),
+        ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`provider health: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      ok?: boolean
+      provider?: string
+      baseUrl?: string
+      models?: string[]
+      latencyMs?: number
+      error?: string
+    }
+    const ok = obj.ok === true
+    const n = obj.models?.length ?? 0
+    return {
+      ok,
+      provider: obj.provider,
+      baseUrl: obj.baseUrl,
+      models: obj.models,
+      latencyMs: obj.latencyMs,
+      error: obj.error,
+      summary: ok
+        ? `provider ${obj.provider || '?'} OK · models=${n}${obj.latencyMs != null ? ` · ${obj.latencyMs}ms` : ''}`
+        : `provider ${obj.provider || '?'} DOWN${obj.error ? ` · ${obj.error}` : ''}`,
+      raw,
+    }
+  }
+
+  async providerModels(options: {
+    provider?: string
+    baseUrl?: string
+  } = {}): Promise<ProviderModelsResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_provider_models',
+      arguments: {
+        ...(options.provider ? { provider: options.provider } : {}),
+        ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      provider?: string
+      count?: number
+      models?: Array<{ name?: string; size?: number } | string>
+    }
+    const models = raw.models || []
+    const count = raw.count ?? models.length
+    return {
+      ok: true,
+      provider: raw.provider,
+      count,
+      models,
+      summary: `models · ${raw.provider || '?'} · ${count}`,
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -1097,6 +1199,44 @@ export async function buildKnowledgeMcp(
       repoPath: options.repoPath,
       workspaceId: options.workspaceId,
       full: options.full,
+    })
+  } finally {
+    await session.close()
+  }
+}
+
+export async function providerHealthMcp(
+  options: {
+    aiosHome?: string
+    provider?: string
+    baseUrl?: string
+  } = {},
+): Promise<ProviderHealthResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.providerHealth({
+      provider: options.provider,
+      baseUrl: options.baseUrl,
+    })
+  } finally {
+    await session.close()
+  }
+}
+
+export async function providerModelsMcp(
+  options: {
+    aiosHome?: string
+    provider?: string
+    baseUrl?: string
+  } = {},
+): Promise<ProviderModelsResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.providerModels({
+      provider: options.provider,
+      baseUrl: options.baseUrl,
     })
   } finally {
     await session.close()
