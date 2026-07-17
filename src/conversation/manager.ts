@@ -96,7 +96,7 @@ export function respondLocal(
       'Sem snapshot — corre `companion status`.'
   } else if (lower.includes('ajuda') || lower === 'help') {
     reply =
-      'Comandos: "status"; análise → pipeline; `companion caps|gov|audit|memory|decide|run`. Voz ainda não.'
+      'Comandos: "status"; análise → pipeline; `companion caps|gov|audit|memory|decide|run|brief`. Voz ainda não.'
   } else if (lower.includes('github') || /\bprs?\b/.test(lower)) {
     reply =
       'GitHub: corre `companion caps github` (usa `gh` se autenticado). Não duplico APIs no Companion.'

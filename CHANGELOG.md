@@ -3,6 +3,12 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/).  
 Versão: SemVer.
 
+## [Unreleased]
+
+### Added
+
+- `companion brief` / `compile` / `/brief` — `aios_compile_prompt` (intent → brief governado) (#43)
+
 ## [0.2.0] — 2026-07-17
 
 Marco do **MVP Companion** — experiência CLI/chat que consome o control plane AIOS (ADR-0014). Sem voz / sem UX cinemática.
