@@ -88,6 +88,14 @@ export type GovernanceRecordResult = {
   raw: unknown
 }
 
+export type DocsAuditResult = {
+  ok: boolean
+  summary: string
+  missing: string[]
+  findings: Array<{ severity?: string; title?: string; path?: string }>
+  raw: unknown
+}
+
 /** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
 export class AiosMcpSession {
   private client: Client | null = null
@@ -393,6 +401,48 @@ export class AiosMcpSession {
     }
   }
 
+  /**
+   * Audit heurístico de docs canónicos no control plane (Documentation Engine).
+   * isError no MCP quando audit.ok=false — ainda devolvemos JSON.
+   */
+  async auditDocs(options: {
+    repoPath?: string
+    workspaceId?: string
+  } = {}): Promise<DocsAuditResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_audit_docs',
+      arguments: {
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`Audit docs: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      ok?: boolean
+      missing?: string[]
+      present?: string[]
+      findings?: Array<{ severity?: string; title?: string; path?: string }>
+      repoPath?: string
+    }
+    const missing = obj.missing || []
+    const findings = obj.findings || []
+    const ok = obj.ok === true
+    const summary = ok
+      ? `docs audit OK · present=${obj.present?.length ?? '?'} · missing=0`
+      : `docs audit FAIL · missing=${missing.length} · findings=${findings.length}`
+    return { ok, summary, missing, findings, raw }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -498,6 +548,25 @@ export async function governanceRecordMcp(
   try {
     await session.connect()
     return await session.governanceRecord(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function auditDocsMcp(
+  options: {
+    aiosHome?: string
+    repoPath?: string
+    workspaceId?: string
+  } = {},
+): Promise<DocsAuditResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.auditDocs({
+      repoPath: options.repoPath,
+      workspaceId: options.workspaceId,
+    })
   } finally {
     await session.close()
   }
