@@ -17,6 +17,7 @@ import {
   fetchOperationalStateMcp,
   governanceRecordMcp,
   listWorkspacesMcp,
+  loadPoliciesMcp,
   memoryRecallMcp,
   memoryRememberMcp,
   providerHealthMcp,
@@ -64,6 +65,7 @@ Uso:
   companion knowledge [--json] [--repo path] [--workspace id] [--full]
   companion providers [health] [--json] [--provider id] [--url base]
   companion providers models [--json] [--provider id] [--url base]
+  companion policies [--json] [--repo path] [--workspace id] [--path file]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -82,6 +84,7 @@ Uso:
   Workspaces: aios_list_workspaces / aios_workspace_* (alias: ws).
   Knowledge: aios_build_knowledge (mapa heurístico do repo; alias: kg).
   Providers: aios_provider_health / aios_provider_models (alias: provider).
+  Policies: aios_load_policies (regulamento explícito; alias: policy).
 
 Env:
   AIOS_HOME        path do monorepo ai-operating-system
@@ -730,6 +733,38 @@ async function cmdProviders(argv: string[]): Promise<void> {
   if (!out.ok) process.exitCode = 1
 }
 
+async function cmdPolicies(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    return argv[i + 1]
+  }
+  const home = resolveAiosHome()
+  const out = await loadPoliciesMcp({
+    aiosHome: home,
+    repoPath: flagVal('--repo') || home,
+    workspaceId: flagVal('--workspace') || process.env.AIOS_WORKSPACE,
+    policiesPath: flagVal('--path'),
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  if (out.path) console.log(`path: ${out.path}`)
+  for (const id of out.mustIds.slice(0, 20)) {
+    console.log(`  [must] ${id}`)
+  }
+  if (out.mustIds.length > 20) {
+    console.log(`  … +${out.mustIds.length - 20} must`)
+  }
+  const others = out.rules.filter((r) => r.id && !out.mustIds.includes(r.id))
+  for (const r of others.slice(0, 12)) {
+    console.log(`  [${r.severity || '?'}] ${r.id || r.title || '?'}`)
+  }
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -778,7 +813,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /policies · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -787,6 +822,32 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (
+        line.trim() === '/policies' ||
+        line.trim() === '/policy' ||
+        line.trim().startsWith('/policies ') ||
+        line.trim().startsWith('/policy ')
+      ) {
+        try {
+          const polMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await polMcp.connect()
+          const out = await polMcp.loadPolicies({
+            repoPath: home,
+            workspaceId: process.env.AIOS_WORKSPACE,
+          })
+          console.log(`companion · policies> ${out.summary}`)
+          for (const id of out.mustIds.slice(0, 8)) {
+            console.log(`  [must] ${id}`)
+          }
+          console.log('')
+          if (!mcp) await polMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · policies> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (
         line.trim() === '/providers' ||
         line.trim() === '/provider' ||
@@ -1127,6 +1188,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'providers' || cmd === 'provider') {
     await cmdProviders(argv.slice(1))
+    return
+  }
+  if (cmd === 'policies' || cmd === 'policy') {
+    await cmdPolicies(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

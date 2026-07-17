@@ -463,3 +463,35 @@ describe('AiosMcpSession.provider', () => {
     assert.match(out.summary, /models · ollama · 2/)
   })
 })
+
+describe('AiosMcpSession.loadPolicies', () => {
+  it('resume count e mustIds', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_load_policies')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                source: 'file',
+                path: '/tmp/policies.json',
+                count: 2,
+                mustIds: ['official-docs', 'trade-offs'],
+                rules: [
+                  { id: 'official-docs', severity: 'must', title: 'Docs' },
+                  { id: 'trade-offs', severity: 'must', title: 'Trade-offs' },
+                ],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.loadPolicies({ repoPath: '/tmp' })
+    assert.equal(out.count, 2)
+    assert.equal(out.mustIds.length, 2)
+    assert.match(out.summary, /must=2/)
+  })
+})
