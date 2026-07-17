@@ -48,3 +48,38 @@ describe('AiosMcpSession.runPipeline', () => {
     assert.match(out.summary, /FAIL/)
   })
 })
+
+describe('AiosMcpSession.governanceStatus', () => {
+  it('resume attention e hasErrors', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              workspaces: [{ id: 'a' }],
+              policies: { count: 3 },
+              provider: { ok: false },
+              attention: [
+                {
+                  id: 'provider-down',
+                  severity: 'error',
+                  title: 'Provider down',
+                },
+                { id: 'metrics-stub', severity: 'info', title: 'Metrics stub' },
+              ],
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.governanceStatus()
+    assert.equal(out.hasErrors, true)
+    assert.equal(out.workspaces, 1)
+    assert.equal(out.policies, 3)
+    assert.match(out.summary, /provider=down/)
+    assert.match(out.summary, /1 error/)
+  })
+})
