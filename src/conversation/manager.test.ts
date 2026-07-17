@@ -2,7 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createSession,
+  isPipelineIntent,
   respondLocal,
+  respondWithPipeline,
   respondWithProvider,
 } from './manager.ts'
 import type { AiosMcpSession } from '../aios/mcp-client.ts'
@@ -20,6 +22,34 @@ describe('ConversationManager', () => {
     assert.equal(a.role, 'assistant')
     assert.equal(a.via, 'local')
     assert.match(a.content, /Estado operacional|demo ok/)
+  })
+
+  it('isPipelineIntent detecta análise', () => {
+    assert.equal(isPipelineIntent('Analisa meu projeto'), true)
+    assert.equal(isPipelineIntent('analyze the project'), true)
+    assert.equal(isPipelineIntent('inspeciona o repo'), true)
+    assert.equal(isPipelineIntent('olá'), false)
+    assert.equal(isPipelineIntent('/run algo'), false)
+  })
+
+  it('respondWithPipeline marca via pipeline', async () => {
+    const s = createSession({ summary: 'ctx' })
+    const fake = {
+      runPipeline: async () => ({
+        summary: 'pipeline OK · intent=analyze.project',
+        passed: true,
+      }),
+    } as unknown as AiosMcpSession
+    const a = await respondWithPipeline(s, 'Analisa meu projeto', fake)
+    assert.equal(a.via, 'pipeline')
+    assert.match(a.content, /pipeline OK/)
+  })
+
+  it('respondLocal em intent pipeline sem MCP orienta run', () => {
+    const s = createSession({ summary: 'ctx' })
+    const a = respondLocal(s, 'Analisa o projeto')
+    assert.equal(a.via, 'local')
+    assert.match(a.content, /pipeline|companion run|\/run/i)
   })
 
   it('respondWithProvider usa MCP e marca via provider', async () => {
@@ -41,6 +71,6 @@ describe('ConversationManager', () => {
     } as unknown as AiosMcpSession
     const a = await respondWithProvider(s, 'ajuda', fake)
     assert.equal(a.via, 'local')
-    assert.match(a.content, /provider|status|Voz/i)
+    assert.match(a.content, /pipeline|status|caps|Voz/i)
   })
 })
