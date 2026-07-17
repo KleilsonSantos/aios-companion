@@ -389,3 +389,77 @@ describe('AiosMcpSession.buildKnowledge', () => {
     assert.match(out.summary, /package=4/)
   })
 })
+
+describe('AiosMcpSession.provider', () => {
+  it('health resume OK', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_provider_health')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                provider: 'ollama',
+                ok: true,
+                baseUrl: 'http://127.0.0.1:11434',
+                models: ['llama3.2'],
+                latencyMs: 12,
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.providerHealth()
+    assert.equal(out.ok, true)
+    assert.match(out.summary, /OK · models=1/)
+  })
+
+  it('health DOWN sem throw (isError + JSON)', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              provider: 'ollama',
+              ok: false,
+              error: 'ECONNREFUSED',
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.providerHealth()
+    assert.equal(out.ok, false)
+    assert.match(out.summary, /DOWN/)
+  })
+
+  it('models resume count', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_provider_models')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                provider: 'ollama',
+                count: 2,
+                models: [{ name: 'a' }, { name: 'b' }],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.providerModels()
+    assert.equal(out.count, 2)
+    assert.match(out.summary, /models · ollama · 2/)
+  })
+})
