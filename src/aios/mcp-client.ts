@@ -58,6 +58,16 @@ export type PipelineRunResult = {
   raw: unknown
 }
 
+export type GovernanceStatusResult = {
+  summary: string
+  hasErrors: boolean
+  attention: Array<{ id?: string; severity?: string; title?: string; detail?: string }>
+  workspaces?: number
+  policies?: number
+  providerOk?: boolean
+  raw: unknown
+}
+
 /** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
 export class AiosMcpSession {
   private client: Client | null = null
@@ -208,6 +218,64 @@ export class AiosMcpSession {
     }
   }
 
+  /**
+   * Health + attention do control plane (consola AIOS via MCP).
+   * Attention error → hasErrors; JSON ainda devolvido.
+   */
+  async governanceStatus(options: { provider?: string } = {}): Promise<GovernanceStatusResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_governance_status',
+      arguments: {
+        homePath: this.aiosHome,
+        ...(options.provider ? { provider: options.provider } : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`Governance: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      workspaces?: unknown[]
+      policies?: { count?: number }
+      provider?: { ok?: boolean; provider?: string }
+      attention?: Array<{
+        id?: string
+        severity?: string
+        title?: string
+        detail?: string
+      }>
+    }
+    const attention = obj.attention || []
+    const errors = attention.filter((a) => a.severity === 'error')
+    const warns = attention.filter((a) => a.severity === 'warn')
+    const ws = obj.workspaces?.length ?? 0
+    const pol = obj.policies?.count ?? 0
+    const providerOk = obj.provider?.ok
+    const summary = [
+      `gov · workspaces=${ws} · policies=${pol}`,
+      providerOk === undefined ? null : `provider=${providerOk ? 'ok' : 'down'}`,
+      `attention: ${errors.length} error(s), ${warns.length} warn(s)`,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    return {
+      summary,
+      hasErrors: errors.length > 0 || isError,
+      attention,
+      workspaces: ws,
+      policies: pol,
+      providerOk,
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -247,6 +315,19 @@ export async function runPipelineMcp(
   try {
     await session.connect()
     return await session.runPipeline(options)
+  } finally {
+    await session.close()
+  }
+}
+
+/** One-shot governance status via MCP. */
+export async function fetchGovernanceStatusMcp(
+  options: { aiosHome?: string; provider?: string } = {},
+): Promise<GovernanceStatusResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.governanceStatus({ provider: options.provider })
   } finally {
     await session.close()
   }

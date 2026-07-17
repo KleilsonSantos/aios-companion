@@ -10,6 +10,7 @@ import {
 } from './aios/cli-bridge.ts'
 import {
   AiosMcpSession,
+  fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
   runPipelineMcp,
 } from './aios/mcp-client.ts'
@@ -32,6 +33,7 @@ Uso:
   companion chat [--mcp|--cli] [--local]
   companion caps [git|github] [--json]
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
+  companion gov [--json] [--provider id]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -40,6 +42,7 @@ Uso:
   Chat (default): MCP session + aios_provider_chat; fallback local se provider down.
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand).
+  Gov: aios_governance_status (health + attention).
 
 Env:
   AIOS_HOME   path do monorepo ai-operating-system
@@ -190,6 +193,29 @@ async function cmdRun(argv: string[]): Promise<void> {
   if (!out.passed) process.exitCode = 1
 }
 
+async function cmdGov(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const i = argv.indexOf('--provider')
+  const provider = i >= 0 ? argv[i + 1] : undefined
+  const home = resolveAiosHome()
+  const out = await fetchGovernanceStatusMcp({ aiosHome: home, provider })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+  } else {
+    console.log(out.summary)
+    const top = out.attention.slice(0, 8)
+    for (const a of top) {
+      console.log(
+        `  [${a.severity || '?'}] ${a.title || a.id || '?'}${a.detail ? ` — ${a.detail}` : ''}`,
+      )
+    }
+    if (out.attention.length > top.length) {
+      console.log(`  … +${out.attention.length - top.length} mais`)
+    }
+  }
+  if (out.hasErrors) process.exitCode = 1
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -238,7 +264,7 @@ async function cmdChat(
       : 'provider (MCP aios_provider_chat; fallback local)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · /run <intent> = pipeline AIOS · sem voz)\n')
+  console.log('(Ctrl+C /quit · /run <intent> · /gov · sem voz)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -247,6 +273,24 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (line.trim() === '/gov' || line.trim() === '/governance') {
+        try {
+          const govMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await govMcp.connect()
+          const out = await govMcp.governanceStatus()
+          console.log(`companion · gov> ${out.summary}`)
+          for (const a of out.attention.slice(0, 5)) {
+            console.log(`  [${a.severity || '?'}] ${a.title || a.id || '?'}`)
+          }
+          console.log('')
+          if (!mcp) await govMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · gov> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim().startsWith('/run ')) {
         const intent = line.trim().slice(5).trim()
         if (!intent) {
@@ -304,6 +348,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'run' || cmd === 'pipeline') {
     await cmdRun(argv.slice(1))
+    return
+  }
+  if (cmd === 'gov' || cmd === 'governance') {
+    await cmdGov(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)
