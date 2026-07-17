@@ -17,6 +17,11 @@ import {
   respondLocal,
   respondWithProvider,
 } from './conversation/manager.ts'
+import {
+  probeAll,
+  snapshotCapability,
+  type CapabilityId,
+} from './capabilities/index.ts'
 
 function usage(): void {
   console.log(`aios-companion — Conversation Manager (ADR-0014)
@@ -24,12 +29,14 @@ function usage(): void {
 Uso:
   companion status [--json] [--mcp|--cli]
   companion chat [--mcp|--cli] [--local]
+  companion caps [git|github] [--json]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
   --local   chat só com respostas determinísticas (sem Ollama)
 
   Chat (default): MCP session + aios_provider_chat; fallback local se provider down.
+  Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
 
 Env:
   AIOS_HOME   path do monorepo ai-operating-system
@@ -90,6 +97,51 @@ async function cmdStatus(
   console.log(
     `boundaries: voice=${state.boundaries?.voice} ide=${state.boundaries?.ideControl} docker=${state.boundaries?.dockerControl}`,
   )
+}
+
+async function cmdCaps(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const idArg = argv.find((a) => a === 'git' || a === 'github') as
+    | CapabilityId
+    | undefined
+  let operationalGit: OperationalStateLite['git'] | undefined
+  try {
+    // CLI only — evita subir MCP só para atalho git (Resource-Aware).
+    operationalGit = fetchOperationalState().git
+  } catch {
+    // caps funcionam sem AIOS — só perdem atalho git via state
+  }
+  const ctx = {
+    cwd: process.cwd(),
+    operationalGit,
+  }
+
+  if (!idArg) {
+    const probes = probeAll(ctx)
+    if (jsonOnly) {
+      console.log(JSON.stringify(probes, null, 2))
+      return
+    }
+    console.log('Capabilities (probe):')
+    for (const p of probes) {
+      console.log(
+        `  ${p.id.padEnd(8)} ${p.available ? 'ok' : 'n/a'}${p.reason ? ` — ${p.reason}` : ''}`,
+      )
+    }
+    console.log('\nUso: companion caps git|github [--json]')
+    return
+  }
+
+  const snap = await snapshotCapability(idArg, ctx)
+  if (jsonOnly) {
+    console.log(JSON.stringify(snap, null, 2))
+    return
+  }
+  console.log(`${snap.id}: ${snap.ok ? 'ok' : 'fail'}`)
+  console.log(snap.summary)
+  if (snap.data && typeof snap.data === 'object') {
+    console.log(JSON.stringify(snap.data, null, 2))
+  }
 }
 
 async function cmdChat(
@@ -176,6 +228,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'chat') {
     await cmdChat(transport, argv.includes('--local'))
+    return
+  }
+  if (cmd === 'caps' || cmd === 'capabilities') {
+    await cmdCaps(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)
