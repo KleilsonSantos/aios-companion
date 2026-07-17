@@ -40,6 +40,7 @@ pnpm companion chat --local     # só respostas determinísticas
 pnpm companion caps             # probe git / github
 pnpm companion caps git         # branch/status on-demand
 pnpm companion caps github      # PRs abertos via `gh` (se autenticado)
+pnpm companion run "Analise meu projeto."   # núcleo AIOS (aios_run_pipeline)
 ```
 
 ## Capability adapters
