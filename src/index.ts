@@ -18,6 +18,7 @@ import {
   memoryRememberMcp,
   runPipelineMcp,
 } from './aios/mcp-client.ts'
+import { runDoctor } from './aios/doctor.ts'
 import {
   createSession,
   isPipelineIntent,
@@ -36,6 +37,7 @@ function usage(): void {
 
 Uso:
   companion status [--json] [--mcp|--cli]
+  companion doctor [--json]
   companion chat [--mcp|--cli] [--local]
   companion caps [git|github] [--json]
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
@@ -49,6 +51,7 @@ Uso:
   --cli     forçar CLI AIOS (só status / estado inicial)
   --local   chat só com respostas determinísticas (sem Ollama)
 
+  Doctor: check-up da ponte (AIOS_HOME + MCP + contract + state/gov).
   Chat (default): MCP session + aios_provider_chat; análise → pipeline; fallback local.
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand; também auto no chat).
@@ -117,6 +120,21 @@ async function cmdStatus(
   console.log(
     `boundaries: voice=${state.boundaries?.voice} ide=${state.boundaries?.ideControl} docker=${state.boundaries?.dockerControl}`,
   )
+}
+
+async function cmdDoctor(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const report = await runDoctor()
+  if (jsonOnly) {
+    console.log(JSON.stringify(report, null, 2))
+  } else {
+    console.log(report.summary)
+    if (report.aiosHome) console.log(`AIOS_HOME: ${report.aiosHome}`)
+    for (const c of report.checks) {
+      console.log(`  ${c.ok ? 'ok' : 'FAIL'}  ${c.id.padEnd(18)} ${c.detail}`)
+    }
+  }
+  if (!report.ok) process.exitCode = 1
 }
 
 async function cmdCaps(argv: string[]): Promise<void> {
@@ -589,6 +607,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'status') {
     await cmdStatus(argv.includes('--json'), transport)
+    return
+  }
+  if (cmd === 'doctor' || cmd === 'checkup') {
+    await cmdDoctor(argv.slice(1))
     return
   }
   if (cmd === 'chat') {
