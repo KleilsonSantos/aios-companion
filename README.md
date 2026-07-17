@@ -52,6 +52,9 @@ pnpm companion audit                # inventário/drift docs (aios_audit_docs)
 pnpm companion memory recall        # memória do workspace (default: aios)
 pnpm companion memory remember "nota curta"
 pnpm companion brief "Crie um hook de auth"   # Prompt Engine (aios_compile_prompt)
+pnpm companion workspaces                     # list registry (aios_list_workspaces)
+pnpm companion workspaces add companion ~/Projects/aios-companion
+pnpm companion workspaces validate
 ```
 
 ## Capability adapters

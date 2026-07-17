@@ -8,6 +8,7 @@ Versão: SemVer.
 ### Added
 
 - `companion brief` / `compile` / `/brief` — `aios_compile_prompt` (intent → brief governado) (#43)
+- `companion workspaces` / `ws` / `/workspaces` — `aios_list_workspaces` + `aios_workspace_*` (#46)
 
 ## [0.2.0] — 2026-07-17
 

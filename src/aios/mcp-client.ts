@@ -106,6 +106,45 @@ export type CompilePromptResult = {
   raw: unknown
 }
 
+export type WorkspaceListItem = {
+  id?: string
+  name?: string
+  path?: string
+  default?: boolean
+  tags?: string[]
+  repoPath?: string
+  ok?: boolean
+  signals?: string[]
+}
+
+export type WorkspacesListResult = {
+  count: number
+  summary: string
+  workspaces: WorkspaceListItem[]
+  raw: unknown
+}
+
+export type WorkspaceUpsertResult = {
+  ok: boolean
+  created: boolean
+  summary: string
+  raw: unknown
+}
+
+export type WorkspaceRemoveResult = {
+  ok: boolean
+  removed: boolean
+  summary: string
+  raw: unknown
+}
+
+export type WorkspaceValidateResult = {
+  ok: boolean
+  summary: string
+  workspaces: WorkspaceListItem[]
+  raw: unknown
+}
+
 /** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
 export const EXPECTED_CONTRACT_VERSION = '1'
 
@@ -545,6 +584,149 @@ export class AiosMcpSession {
     }
   }
 
+  /** Registry multi-repo — list (#46). */
+  async listWorkspaces(options: { workspacesPath?: string } = {}): Promise<WorkspacesListResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_list_workspaces',
+      arguments: {
+        homePath: this.aiosHome,
+        ...(options.workspacesPath ? { workspacesPath: options.workspacesPath } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      count?: number
+      workspaces?: WorkspaceListItem[]
+      source?: string
+      path?: string
+    }
+    const workspaces = raw.workspaces || []
+    const count = raw.count ?? workspaces.length
+    return {
+      count,
+      workspaces,
+      summary:
+        count === 0
+          ? 'workspaces: nenhum registado'
+          : `workspaces: ${count} · source=${raw.source || '?'}`,
+      raw,
+    }
+  }
+
+  async workspaceUpsert(options: {
+    id: string
+    path: string
+    name?: string
+    tags?: string[]
+    makeDefault?: boolean
+  }): Promise<WorkspaceUpsertResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_workspace_upsert',
+      arguments: {
+        id: options.id,
+        path: options.path,
+        homePath: this.aiosHome,
+        ...(options.name ? { name: options.name } : {}),
+        ...(options.tags?.length ? { tags: options.tags } : {}),
+        ...(options.makeDefault ? { makeDefault: true } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      created?: boolean
+      entry?: { id?: string; path?: string }
+      path?: string
+    }
+    const created = raw.created === true
+    return {
+      ok: true,
+      created,
+      summary: `${created ? 'created' : 'updated'} · ${raw.entry?.id || options.id}`,
+      raw,
+    }
+  }
+
+  async workspaceRemove(options: { id: string }): Promise<WorkspaceRemoveResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_workspace_remove',
+      arguments: {
+        id: options.id,
+        homePath: this.aiosHome,
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as { removed?: boolean; path?: string }
+    const removed = raw.removed === true
+    return {
+      ok: removed,
+      removed,
+      summary: removed
+        ? `removed · ${options.id}`
+        : `not found · ${options.id}`,
+      raw,
+    }
+  }
+
+  async workspaceValidate(options: { id?: string } = {}): Promise<WorkspaceValidateResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_workspace_validate',
+      arguments: {
+        homePath: this.aiosHome,
+        ...(options.id ? { id: options.id } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      ok?: boolean
+      id?: string
+      count?: number
+      workspaces?: WorkspaceListItem[]
+      signals?: string[]
+      repoPath?: string
+    }
+    // Single-id shape vs all shape
+    if (options.id || raw.id) {
+      const ok = raw.ok === true
+      const item: WorkspaceListItem = {
+        id: raw.id || options.id,
+        repoPath: raw.repoPath,
+        ok,
+        signals: raw.signals,
+      }
+      return {
+        ok,
+        workspaces: [item],
+        summary: ok
+          ? `validate OK · ${item.id}`
+          : `validate FAIL · ${item.id}`,
+        raw,
+      }
+    }
+    const workspaces = raw.workspaces || []
+    const bad = workspaces.filter((w) => w.ok === false)
+    const ok = bad.length === 0
+    return {
+      ok,
+      workspaces,
+      summary: ok
+        ? `validate OK · ${workspaces.length} workspace(s)`
+        : `validate FAIL · ${bad.length}/${workspaces.length} bad`,
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -688,6 +870,63 @@ export async function compilePromptMcp(
   try {
     await session.connect()
     return await session.compilePrompt(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function listWorkspacesMcp(
+  options: { aiosHome?: string; workspacesPath?: string } = {},
+): Promise<WorkspacesListResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.listWorkspaces({
+      workspacesPath: options.workspacesPath,
+    })
+  } finally {
+    await session.close()
+  }
+}
+
+export async function workspaceUpsertMcp(
+  options: {
+    id: string
+    path: string
+    aiosHome?: string
+    name?: string
+    tags?: string[]
+    makeDefault?: boolean
+  },
+): Promise<WorkspaceUpsertResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.workspaceUpsert(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function workspaceRemoveMcp(
+  options: { id: string; aiosHome?: string },
+): Promise<WorkspaceRemoveResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.workspaceRemove(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function workspaceValidateMcp(
+  options: { id?: string; aiosHome?: string } = {},
+): Promise<WorkspaceValidateResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.workspaceValidate({ id: options.id })
   } finally {
     await session.close()
   }
