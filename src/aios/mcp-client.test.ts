@@ -495,3 +495,63 @@ describe('AiosMcpSession.loadPolicies', () => {
     assert.match(out.summary, /must=2/)
   })
 })
+
+describe('AiosMcpSession.governanceAudit', () => {
+  it('resume OK e findings', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_governance_audit')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                ok: true,
+                policies: { mustIds: ['a', 'b'], count: 5 },
+                decisions: { count: 3 },
+                documentation: { ok: true, findingCount: 0 },
+                findings: [
+                  {
+                    id: 'gov-no-decisions',
+                    severity: 'info',
+                    title: 'Nenhuma decisão',
+                  },
+                ],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.governanceAudit()
+    assert.equal(out.ok, true)
+    assert.equal(out.mustIds.length, 2)
+    assert.match(out.summary, /gov audit OK/)
+  })
+
+  it('não throw quando isError + ok false', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: false,
+              policies: { mustIds: [] },
+              decisions: { count: 0 },
+              findings: [
+                { severity: 'error', title: 'bloqueio', id: 'x' },
+              ],
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.governanceAudit({ repoPath: '/tmp' })
+    assert.equal(out.ok, false)
+    assert.match(out.summary, /FAIL/)
+  })
+})
