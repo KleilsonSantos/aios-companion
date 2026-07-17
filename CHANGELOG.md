@@ -5,6 +5,10 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+### Added
+
+- `companion providers` / `/providers` — `aios_provider_health` + `aios_provider_models` (#58)
+
 ## [0.3.0] — 2026-07-17
 
 Marco **pós-MVP** — superfície MCP alargada (Prompt Engine, multi-repo, Knowledge Graph). Sem voz / sem UX cinemática.

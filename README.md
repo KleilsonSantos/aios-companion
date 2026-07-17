@@ -58,6 +58,8 @@ pnpm companion workspaces add companion ~/Projects/aios-companion
 pnpm companion workspaces validate
 pnpm companion knowledge                  # Knowledge Graph (aios_build_knowledge)
 pnpm companion knowledge --workspace aios --json
+pnpm companion providers              # health (aios_provider_health)
+pnpm companion providers models       # list models (aios_provider_models)
 ```
 
 ## Capability adapters
