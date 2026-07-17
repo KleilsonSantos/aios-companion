@@ -192,6 +192,24 @@ export type ProviderModelsResult = {
   raw: unknown
 }
 
+export type PolicyRuleLite = {
+  id?: string
+  severity?: string
+  title?: string
+  description?: string
+}
+
+export type PoliciesLoadResult = {
+  count: number
+  source?: string
+  path?: string
+  mustIds: string[]
+  constraints?: unknown
+  rules: PolicyRuleLite[]
+  summary: string
+  raw: unknown
+}
+
 /** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
 export const EXPECTED_CONTRACT_VERSION = '1'
 
@@ -960,6 +978,53 @@ export class AiosMcpSession {
     }
   }
 
+  /** Policy Engine via MCP — regulamento explícito (#61). */
+  async loadPolicies(options: {
+    repoPath?: string
+    workspaceId?: string
+    policiesPath?: string
+  } = {}): Promise<PoliciesLoadResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_load_policies',
+      arguments: {
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+        ...(options.policiesPath ? { policiesPath: options.policiesPath } : {}),
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      source?: string
+      path?: string
+      count?: number
+      mustIds?: string[]
+      constraints?: unknown
+      rules?: PolicyRuleLite[]
+    }
+    const rules = raw.rules || []
+    const mustIds = raw.mustIds || []
+    const count = raw.count ?? rules.length
+    return {
+      count,
+      source: raw.source,
+      path: raw.path,
+      mustIds,
+      constraints: raw.constraints,
+      rules,
+      summary: [
+        `policies · ${count} rule(s)`,
+        `must=${mustIds.length}`,
+        raw.source ? `source=${raw.source}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -1237,6 +1302,27 @@ export async function providerModelsMcp(
     return await session.providerModels({
       provider: options.provider,
       baseUrl: options.baseUrl,
+    })
+  } finally {
+    await session.close()
+  }
+}
+
+export async function loadPoliciesMcp(
+  options: {
+    aiosHome?: string
+    repoPath?: string
+    workspaceId?: string
+    policiesPath?: string
+  } = {},
+): Promise<PoliciesLoadResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.loadPolicies({
+      repoPath: options.repoPath,
+      workspaceId: options.workspaceId,
+      policiesPath: options.policiesPath,
     })
   } finally {
     await session.close()

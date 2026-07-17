@@ -8,6 +8,7 @@ Versão: SemVer.
 ### Added
 
 - `companion providers` / `/providers` — `aios_provider_health` + `aios_provider_models` (#58)
+- `companion policies` / `/policies` — `aios_load_policies` (#61)
 
 ## [0.3.0] — 2026-07-17
 

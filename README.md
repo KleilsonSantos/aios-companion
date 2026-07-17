@@ -60,6 +60,7 @@ pnpm companion knowledge                  # Knowledge Graph (aios_build_knowledg
 pnpm companion knowledge --workspace aios --json
 pnpm companion providers              # health (aios_provider_health)
 pnpm companion providers models       # list models (aios_provider_models)
+pnpm companion policies               # Policy Engine (aios_load_policies)
 ```
 
 ## Capability adapters
