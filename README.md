@@ -56,6 +56,8 @@ pnpm companion brief "Crie um hook de auth"   # Prompt Engine (aios_compile_prom
 pnpm companion workspaces                     # list registry (aios_list_workspaces)
 pnpm companion workspaces add companion ~/Projects/aios-companion
 pnpm companion workspaces validate
+pnpm companion knowledge                  # Knowledge Graph (aios_build_knowledge)
+pnpm companion knowledge --workspace aios --json
 ```
 
 ## Capability adapters
