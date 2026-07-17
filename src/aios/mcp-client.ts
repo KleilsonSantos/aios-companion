@@ -29,9 +29,33 @@ function toolText(result: {
   return text
 }
 
+/** Extrai texto MCP sem falhar em isError (pipeline pode falhar no quality gate). */
+function toolTextAllowError(result: {
+  content?: Array<{ type: string; text?: string }>
+  isError?: boolean
+}): { text: string; isError: boolean } {
+  const text = result.content
+    ?.filter((c) => c.type === 'text' && c.text)
+    .map((c) => c.text!)
+    .join('\n')
+    .trim()
+  if (!text) throw new Error('MCP tool: resposta vazia')
+  return { text, isError: Boolean(result.isError) }
+}
+
 export type ProviderChatResult = {
   content: string
   raw?: unknown
+}
+
+export type PipelineRunResult = {
+  contractVersion?: number
+  intent?: { type?: string; raw?: string }
+  workflow?: { ran?: string[]; skipped?: string[] }
+  verdict?: { passed?: boolean; checks?: unknown }
+  summary: string
+  passed: boolean
+  raw: unknown
 }
 
 /** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
@@ -129,6 +153,61 @@ export class AiosMcpSession {
     return { content: String(content).trim() || text, raw }
   }
 
+  /**
+   * Núcleo AIOS via MCP — intent → policies → agents → quality gate.
+   * Quality gate fail devolve JSON (não throw) — caller decide exit code.
+   */
+  async runPipeline(options: {
+    input: string
+    repoPath?: string
+    workspaceId?: string
+    scope?: string
+    policiesPath?: string
+  }): Promise<PipelineRunResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_run_pipeline',
+      arguments: {
+        input: options.input,
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+        ...(options.scope ? { scope: options.scope } : {}),
+        ...(options.policiesPath ? { policiesPath: options.policiesPath } : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`Pipeline: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      contractVersion?: number
+      intent?: { type?: string; raw?: string }
+      workflow?: { ran?: string[]; skipped?: string[] }
+      verdict?: { passed?: boolean; checks?: unknown }
+    }
+    const passed = obj.verdict?.passed === true
+    const ran = obj.workflow?.ran?.join(', ') || '—'
+    const intentType = obj.intent?.type || '?'
+    const summary = passed
+      ? `pipeline OK · intent=${intentType} · agents=${ran}`
+      : `pipeline FAIL · intent=${intentType} · agents=${ran} (quality gate)`
+    return {
+      contractVersion: obj.contractVersion,
+      intent: obj.intent,
+      workflow: obj.workflow,
+      verdict: obj.verdict,
+      summary,
+      passed,
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -148,6 +227,26 @@ export async function fetchOperationalStateMcp(
     return await session.operationalState({
       workspaceId: options.workspaceId,
     })
+  } finally {
+    await session.close()
+  }
+}
+
+/** One-shot pipeline via MCP. */
+export async function runPipelineMcp(
+  options: {
+    input: string
+    aiosHome?: string
+    repoPath?: string
+    workspaceId?: string
+    scope?: string
+    policiesPath?: string
+  },
+): Promise<PipelineRunResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.runPipeline(options)
   } finally {
     await session.close()
   }
