@@ -65,6 +65,8 @@ Contratos finos no Companion (ADR-0014) — **não** engines AIOS:
 
 Mesma disciplina do AIOS: `feature/*` → `sandbox` → `main` · commits `type: <gitmoji> …` · merges via subject `merge: 🔀 …`.
 
+CI: `.github/workflows/ci.yml` — `pnpm typecheck` + `test` em PRs/`main`/`sandbox` (sem matrix).
+
 ## Tracking
 
 Issue AIOS: [#90](https://github.com/KleilsonSantos/ai-operating-system/issues/90)
