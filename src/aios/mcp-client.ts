@@ -99,6 +99,14 @@ export type MemoryRememberResult = {
   raw: unknown
 }
 
+export type MemoryClearResult = {
+  cleared: boolean
+  workspaceId: string
+  remaining: string[]
+  summary: string
+  raw: unknown
+}
+
 export type GovernanceRecordResult = {
   ok: boolean
   summary: string
@@ -501,6 +509,38 @@ export class AiosMcpSession {
     return {
       ok: raw.ok !== false,
       summary: `remembered · ${options.workspaceId}${raw.entry?.id ? ` · ${raw.entry.id}` : ''}`,
+      raw,
+    }
+  }
+
+  /** Apaga ficheiro de memória do workspace (#67). Destrutivo — CLI exige --yes. */
+  async memoryClear(options: {
+    workspaceId: string
+  }): Promise<MemoryClearResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_memory_clear',
+      arguments: {
+        workspaceId: options.workspaceId,
+      },
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as {
+      cleared?: boolean
+      workspaceId?: string
+      remaining?: string[]
+    }
+    const cleared = raw.cleared === true
+    const remaining = raw.remaining || []
+    return {
+      cleared,
+      workspaceId: raw.workspaceId || options.workspaceId,
+      remaining,
+      summary: cleared
+        ? `memory cleared · ${options.workspaceId} · remaining=${remaining.length}`
+        : `memory clear noop · ${options.workspaceId} (já vazio)`,
       raw,
     }
   }
@@ -1186,6 +1226,21 @@ export async function memoryRememberMcp(
   try {
     await session.connect()
     return await session.memoryRemember(options)
+  } finally {
+    await session.close()
+  }
+}
+
+export async function memoryClearMcp(
+  options: {
+    workspaceId: string
+    aiosHome?: string
+  },
+): Promise<MemoryClearResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.memoryClear(options)
   } finally {
     await session.close()
   }
