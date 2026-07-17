@@ -359,3 +359,33 @@ describe('AiosMcpSession.runAcrossWorkspaces', () => {
     assert.match(out.summary, /FAIL · 1\/2/)
   })
 })
+
+describe('AiosMcpSession.buildKnowledge', () => {
+  it('resume summary nodes/edges', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_build_knowledge')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                repoPath: '/tmp/repo',
+                nodeCount: 12,
+                edgeCount: 8,
+                kinds: { project: 1, package: 4, doc: 3 },
+                signals: ['package.json'],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.buildKnowledge({ repoPath: '/tmp/repo' })
+    assert.equal(out.nodeCount, 12)
+    assert.equal(out.edgeCount, 8)
+    assert.match(out.summary, /nodes=12/)
+    assert.match(out.summary, /package=4/)
+  })
+})
