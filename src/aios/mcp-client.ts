@@ -210,6 +210,16 @@ export type PoliciesLoadResult = {
   raw: unknown
 }
 
+export type GovernanceAuditResult = {
+  ok: boolean
+  summary: string
+  findings: Array<{ id?: string; severity?: string; title?: string; detail?: string }>
+  mustIds: string[]
+  decisionsCount?: number
+  documentationOk?: boolean
+  raw: unknown
+}
+
 /** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
 export const EXPECTED_CONTRACT_VERSION = '1'
 
@@ -1025,6 +1035,70 @@ export class AiosMcpSession {
     }
   }
 
+  /**
+   * Inspeção de governação via MCP — must + decisions + docs drift (#64).
+   * isError no MCP quando ok=false — ainda devolvemos JSON.
+   */
+  async governanceAudit(options: {
+    repoPath?: string
+    includeDocumentation?: boolean
+  } = {}): Promise<GovernanceAuditResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_governance_audit',
+      arguments: {
+        homePath: this.aiosHome,
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.includeDocumentation === false
+          ? { includeDocumentation: false }
+          : options.includeDocumentation
+            ? { includeDocumentation: true }
+            : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`gov audit: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      ok?: boolean
+      policies?: { mustIds?: string[]; count?: number }
+      decisions?: { count?: number }
+      documentation?: { ok?: boolean; findingCount?: number }
+      findings?: Array<{
+        id?: string
+        severity?: string
+        title?: string
+        detail?: string
+      }>
+    }
+    const findings = obj.findings || []
+    const mustIds = obj.policies?.mustIds || []
+    const ok = obj.ok === true
+    const errors = findings.filter((f) => f.severity === 'error').length
+    const warns = findings.filter((f) => f.severity === 'warn').length
+    return {
+      ok,
+      findings,
+      mustIds,
+      decisionsCount: obj.decisions?.count,
+      documentationOk: obj.documentation?.ok,
+      summary: [
+        ok ? 'gov audit OK' : 'gov audit FAIL',
+        `must=${mustIds.length}`,
+        `decisions=${obj.decisions?.count ?? 0}`,
+        `findings: ${errors} error(s), ${warns} warn(s)`,
+      ].join(' · '),
+      raw,
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.client) return
     await this.client.close().catch(() => undefined)
@@ -1323,6 +1397,25 @@ export async function loadPoliciesMcp(
       repoPath: options.repoPath,
       workspaceId: options.workspaceId,
       policiesPath: options.policiesPath,
+    })
+  } finally {
+    await session.close()
+  }
+}
+
+export async function governanceAuditMcp(
+  options: {
+    aiosHome?: string
+    repoPath?: string
+    includeDocumentation?: boolean
+  } = {},
+): Promise<GovernanceAuditResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.governanceAudit({
+      repoPath: options.repoPath,
+      includeDocumentation: options.includeDocumentation,
     })
   } finally {
     await session.close()

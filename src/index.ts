@@ -15,6 +15,7 @@ import {
   compilePromptMcp,
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
+  governanceAuditMcp,
   governanceRecordMcp,
   listWorkspacesMcp,
   loadPoliciesMcp,
@@ -53,6 +54,7 @@ Uso:
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
   companion run-all "<intent>" [--json] [--workspace id]… [--scope path]
   companion gov [--json] [--provider id]
+  companion gov audit [--json] [--repo path] [--no-docs]
   companion decide "<resumo>" [--kind note] [--verdict info|pass|fail] [--json]
   companion audit [--json] [--repo path] [--workspace id]
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
@@ -76,7 +78,7 @@ Uso:
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand; também auto no chat).
   Run-all: aios_run_across_workspaces (pipeline em N workspaces).
-  Gov: aios_governance_status (health + attention).
+  Gov: aios_governance_status (health + attention); gov audit → aios_governance_audit.
   Decide: aios_governance_record (log de decisões).
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
   Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
@@ -308,9 +310,44 @@ async function cmdRunAll(argv: string[]): Promise<void> {
 
 async function cmdGov(argv: string[]): Promise<void> {
   const jsonOnly = argv.includes('--json')
+  const home = resolveAiosHome()
+
+  if (argv[0] === 'audit' || argv[0] === 'inspect') {
+    const rest = argv.slice(1)
+    const flagVal = (name: string): string | undefined => {
+      const i = rest.indexOf(name)
+      if (i < 0) return undefined
+      return rest[i + 1]
+    }
+    const out = await governanceAuditMcp({
+      aiosHome: home,
+      repoPath: flagVal('--repo') || home,
+      includeDocumentation: rest.includes('--no-docs') ? false : undefined,
+    })
+    if (jsonOnly || rest.includes('--json')) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    console.log(`must: ${out.mustIds.slice(0, 12).join(', ') || '(none)'}`)
+    if (out.decisionsCount != null) {
+      console.log(`decisions: ${out.decisionsCount}`)
+    }
+    if (out.documentationOk !== undefined) {
+      console.log(`docs: ${out.documentationOk ? 'ok' : 'drift'}`)
+    }
+    for (const f of out.findings.slice(0, 12)) {
+      if (f.severity === 'info') continue
+      console.log(
+        `  [${f.severity || '?'}] ${f.title || f.id || '?'}${f.detail ? ` — ${f.detail}` : ''}`,
+      )
+    }
+    if (!out.ok) process.exitCode = 1
+    return
+  }
+
   const i = argv.indexOf('--provider')
   const provider = i >= 0 ? argv[i + 1] : undefined
-  const home = resolveAiosHome()
   const out = await fetchGovernanceStatusMcp({ aiosHome: home, provider })
   if (jsonOnly) {
     console.log(JSON.stringify(out.raw, null, 2))
@@ -813,7 +850,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /policies · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /policies · /gov · /gov audit · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -822,6 +859,28 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (
+        line.trim() === '/gov audit' ||
+        line.trim() === '/governance audit' ||
+        line.trim().startsWith('/gov audit ')
+      ) {
+        try {
+          const audMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await audMcp.connect()
+          const out = await audMcp.governanceAudit({ repoPath: home })
+          console.log(`companion · gov audit> ${out.summary}`)
+          for (const f of out.findings.filter((x) => x.severity !== 'info').slice(0, 5)) {
+            console.log(`  [${f.severity}] ${f.title || f.id}`)
+          }
+          console.log('')
+          if (!mcp) await audMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · gov audit> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (
         line.trim() === '/policies' ||
         line.trim() === '/policy' ||
