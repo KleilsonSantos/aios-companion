@@ -152,3 +152,34 @@ describe('AiosMcpSession.governanceRecord', () => {
     assert.match(out.summary, /d1/)
   })
 })
+
+describe('AiosMcpSession.auditDocs', () => {
+  it('resume ok e missing', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: false,
+              present: ['README.md'],
+              missing: ['docs/FOUNDATION.md'],
+              findings: [
+                {
+                  severity: 'error',
+                  title: 'Doc canónica em falta: docs/FOUNDATION.md',
+                },
+              ],
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.auditDocs({ repoPath: '/tmp/repo' })
+    assert.equal(out.ok, false)
+    assert.match(out.summary, /FAIL/)
+    assert.equal(out.missing[0], 'docs/FOUNDATION.md')
+  })
+})

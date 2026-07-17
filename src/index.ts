@@ -10,6 +10,7 @@ import {
 } from './aios/cli-bridge.ts'
 import {
   AiosMcpSession,
+  auditDocsMcp,
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
   governanceRecordMcp,
@@ -38,6 +39,7 @@ Uso:
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
   companion gov [--json] [--provider id]
   companion decide "<resumo>" [--kind note] [--verdict info|pass|fail] [--json]
+  companion audit [--json] [--repo path] [--workspace id]
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
   companion memory remember [workspace] "<nota>" [--tag t] [--json]
 
@@ -50,6 +52,7 @@ Uso:
   Run: núcleo AIOS via aios_run_pipeline (on-demand).
   Gov: aios_governance_status (health + attention).
   Decide: aios_governance_record (log de decisões).
+  Audit: aios_audit_docs (inventário/drift de docs canónicos).
   Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
 
 Env:
@@ -268,6 +271,34 @@ async function cmdDecide(argv: string[]): Promise<void> {
   if (!out.ok) process.exitCode = 1
 }
 
+async function cmdAudit(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    return argv[i + 1]
+  }
+  const home = resolveAiosHome()
+  const out = await auditDocsMcp({
+    aiosHome: home,
+    repoPath: flagVal('--repo') || home,
+    workspaceId: flagVal('--workspace'),
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  for (const f of out.findings.slice(0, 12)) {
+    if (f.severity === 'info') continue
+    console.log(`  [${f.severity || '?'}] ${f.title || f.path || '?'}`)
+  }
+  if (out.missing.length) {
+    console.log(`missing: ${out.missing.slice(0, 8).join(', ')}`)
+  }
+  if (!out.ok) process.exitCode = 1
+}
+
 async function cmdMemory(argv: string[]): Promise<void> {
   const sub = argv[0]
   const rest = argv.slice(1)
@@ -400,7 +431,7 @@ async function cmdChat(
       : 'provider (MCP aios_provider_chat; fallback local)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · /run · /gov · /decide · /memory · sem voz)\n')
+  console.log('(Ctrl+C /quit · /run · /gov · /decide · /audit · /memory · sem voz)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -409,6 +440,24 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (line.trim() === '/audit') {
+        try {
+          const audMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await audMcp.connect()
+          const out = await audMcp.auditDocs({ repoPath: home })
+          console.log(`companion · audit> ${out.summary}`)
+          for (const f of out.findings.filter((x) => x.severity !== 'info').slice(0, 5)) {
+            console.log(`  [${f.severity}] ${f.title}`)
+          }
+          console.log('')
+          if (!mcp) await audMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · audit> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim().startsWith('/decide ')) {
         const summary = line.trim().slice('/decide '.length).trim()
         if (!summary) {
@@ -537,6 +586,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'decide' || cmd === 'decision') {
     await cmdDecide(argv.slice(1))
+    return
+  }
+  if (cmd === 'audit' || cmd === 'docs') {
+    await cmdAudit(argv.slice(1))
     return
   }
   if (cmd === 'memory' || cmd === 'mem') {
