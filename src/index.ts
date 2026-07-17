@@ -12,6 +12,8 @@ import {
   AiosMcpSession,
   fetchGovernanceStatusMcp,
   fetchOperationalStateMcp,
+  memoryRecallMcp,
+  memoryRememberMcp,
   runPipelineMcp,
 } from './aios/mcp-client.ts'
 import {
@@ -34,6 +36,8 @@ Uso:
   companion caps [git|github] [--json]
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
   companion gov [--json] [--provider id]
+  companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
+  companion memory remember [workspace] "<nota>" [--tag t] [--json]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -43,9 +47,11 @@ Uso:
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand).
   Gov: aios_governance_status (health + attention).
+  Memory: aios_memory_recall / aios_memory_remember (default workspace: aios).
 
 Env:
-  AIOS_HOME   path do monorepo ai-operating-system
+  AIOS_HOME        path do monorepo ai-operating-system
+  AIOS_WORKSPACE   default workspace id (memory/run)
 `)
 }
 
@@ -216,6 +222,90 @@ async function cmdGov(argv: string[]): Promise<void> {
   if (out.hasErrors) process.exitCode = 1
 }
 
+async function cmdMemory(argv: string[]): Promise<void> {
+  const sub = argv[0]
+  const rest = argv.slice(1)
+  const jsonOnly = rest.includes('--json') || argv.includes('--json')
+  const flagVal = (name: string, from: string[]): string | undefined => {
+    const i = from.indexOf(name)
+    if (i < 0) return undefined
+    return from[i + 1]
+  }
+  const home = resolveAiosHome()
+
+  if (sub === 'recall' || sub === 'list' || !sub) {
+    const args = sub ? rest : argv
+    const flagNames = new Set(['--limit', '--query', '--tag', '--json'])
+    const ws =
+      args.find((a, i) => {
+        if (a.startsWith('-')) return false
+        if (a === 'recall' || a === 'list') return false
+        if (i > 0 && flagNames.has(args[i - 1]!)) return false
+        return true
+      }) ||
+      process.env.AIOS_WORKSPACE ||
+      'aios'
+    const limitRaw = flagVal('--limit', args)
+    const out = await memoryRecallMcp({
+      aiosHome: home,
+      workspaceId: ws,
+      limit: limitRaw ? Number(limitRaw) : undefined,
+      query: flagVal('--query', args),
+      tag: flagVal('--tag', args),
+    })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    for (const e of out.entries.slice(0, 20)) {
+      const tags = e.tags?.length ? ` [${e.tags.join(', ')}]` : ''
+      console.log(`  - ${(e.content || '').slice(0, 160)}${tags}`)
+    }
+    return
+  }
+
+  if (sub === 'remember' || sub === 'add') {
+    const nonFlags = rest.filter(
+      (a, i) =>
+        !a.startsWith('-') &&
+        (i === 0 || !['--tag', '--limit', '--query'].includes(rest[i - 1]!)),
+    )
+    let workspaceId = process.env.AIOS_WORKSPACE || 'aios'
+    let content: string | undefined
+    if (nonFlags.length >= 2) {
+      workspaceId = nonFlags[0]!
+      content = nonFlags.slice(1).join(' ')
+    } else if (nonFlags.length === 1) {
+      content = nonFlags[0]
+    }
+    if (!content?.trim()) {
+      console.error(
+        'Uso: companion memory remember [workspace] "<nota>" [--tag t]',
+      )
+      process.exitCode = 1
+      return
+    }
+    const tag = flagVal('--tag', rest)
+    const out = await memoryRememberMcp({
+      aiosHome: home,
+      workspaceId,
+      content: content.trim(),
+      tags: tag ? [tag] : undefined,
+    })
+    if (jsonOnly) {
+      console.log(JSON.stringify(out.raw, null, 2))
+      return
+    }
+    console.log(out.summary)
+    if (!out.ok) process.exitCode = 1
+    return
+  }
+
+  console.error('Uso: companion memory recall|remember …')
+  process.exitCode = 1
+}
+
 async function cmdChat(
   transport: Transport,
   localOnly: boolean,
@@ -264,7 +354,7 @@ async function cmdChat(
       : 'provider (MCP aios_provider_chat; fallback local)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · /run <intent> · /gov · sem voz)\n')
+  console.log('(Ctrl+C /quit · /run · /gov · /memory · sem voz)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -273,6 +363,28 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (line.trim() === '/memory' || line.trim().startsWith('/memory ')) {
+        const ws =
+          line.trim().slice('/memory'.length).trim() ||
+          process.env.AIOS_WORKSPACE ||
+          'aios'
+        try {
+          const memMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await memMcp.connect()
+          const out = await memMcp.memoryRecall({ workspaceId: ws, limit: 5 })
+          console.log(`companion · memory> ${out.summary}`)
+          for (const e of out.entries.slice(0, 5)) {
+            console.log(`  - ${(e.content || '').slice(0, 120)}`)
+          }
+          console.log('')
+          if (!mcp) await memMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · memory> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim() === '/gov' || line.trim() === '/governance') {
         try {
           const govMcp = mcp ?? new AiosMcpSession(home)
@@ -352,6 +464,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'gov' || cmd === 'governance') {
     await cmdGov(argv.slice(1))
+    return
+  }
+  if (cmd === 'memory' || cmd === 'mem') {
+    await cmdMemory(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)
