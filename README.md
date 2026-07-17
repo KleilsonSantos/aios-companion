@@ -37,13 +37,25 @@ pnpm companion status           # MCP (fallback CLI) → aios_operational_state
 pnpm companion status --mcp     # forçar MCP stdio
 pnpm companion chat             # replies via aios_provider_chat (fallback local)
 pnpm companion chat --local     # só respostas determinísticas
+pnpm companion caps             # probe git / github
+pnpm companion caps git         # branch/status on-demand
+pnpm companion caps github      # PRs abertos via `gh` (se autenticado)
 ```
+
+## Capability adapters
+
+Contratos finos no Companion (ADR-0014) — **não** engines AIOS:
+
+| Adapter | Fonte | Notas |
+| --- | --- | --- |
+| `git` | AIOS operational state ou `git` CLI | On-demand; sem watchers |
+| `github` | `gh` CLI | Inspect-before-install; sem Octokit se `gh` existir |
 
 ## Resource-Aware
 
 - Estado operacional **on-demand** (sem polling)
-- Sem watchers Git/IDE neste MVP
-- Não instala Ollama/Docker só para “ficar vivo”
+- Caps Git/GitHub **on-demand** (sem watchers)
+- Não instala Ollama/Docker/`gh` só para “ficar vivo”
 
 ## Fluxo Git
 
