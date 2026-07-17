@@ -75,7 +75,7 @@ Uso:
   --cli     forçar CLI AIOS (só status / estado inicial)
   --local   chat só com respostas determinísticas (sem Ollama)
 
-  Doctor: check-up da ponte (AIOS_HOME + MCP + contract + state/gov).
+  Doctor: check-up da ponte (AIOS_HOME + MCP + contract + state/gov + provider + policies).
   Chat (default): MCP session + aios_provider_chat; análise → pipeline; fallback local.
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand; também auto no chat).
@@ -161,7 +161,9 @@ async function cmdDoctor(argv: string[]): Promise<void> {
     console.log(report.summary)
     if (report.aiosHome) console.log(`AIOS_HOME: ${report.aiosHome}`)
     for (const c of report.checks) {
-      console.log(`  ${c.ok ? 'ok' : 'FAIL'}  ${c.id.padEnd(18)} ${c.detail}`)
+      const mark =
+        !c.ok ? 'FAIL' : c.severity === 'warn' ? 'warn' : 'ok'
+      console.log(`  ${mark.padEnd(4)}  ${c.id.padEnd(18)} ${c.detail}`)
     }
   }
   if (!report.ok) process.exitCode = 1
