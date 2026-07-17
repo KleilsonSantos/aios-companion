@@ -213,3 +213,89 @@ describe('AiosMcpSession.compilePrompt', () => {
     assert.match(out.summary, /policies=3/)
   })
 })
+
+describe('AiosMcpSession.workspaces', () => {
+  it('list resume count', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: { name?: string }) => {
+        assert.equal(req.name, 'aios_list_workspaces')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                source: 'file',
+                count: 1,
+                workspaces: [{ id: 'aios', path: '.', default: true }],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.listWorkspaces()
+    assert.equal(out.count, 1)
+    assert.match(out.summary, /1/)
+  })
+
+  it('upsert resume created', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              created: true,
+              entry: { id: 'comp', path: '/x' },
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.workspaceUpsert({ id: 'comp', path: '/x' })
+    assert.equal(out.created, true)
+    assert.match(out.summary, /created · comp/)
+  })
+
+  it('remove resume not found', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ removed: false }),
+          },
+        ],
+      }),
+    }
+    const out = await session.workspaceRemove({ id: 'missing' })
+    assert.equal(out.removed, false)
+    assert.match(out.summary, /not found/)
+  })
+
+  it('validate all resume FAIL', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async () => ({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              count: 2,
+              workspaces: [
+                { id: 'a', ok: true },
+                { id: 'b', ok: false, signals: ['no-git'] },
+              ],
+            }),
+          },
+        ],
+      }),
+    }
+    const out = await session.workspaceValidate()
+    assert.equal(out.ok, false)
+    assert.match(out.summary, /1\/2/)
+  })
+})
