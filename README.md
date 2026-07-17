@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Versão:** `0.2.0` — [CHANGELOG](./CHANGELOG.md)
+**Versão:** `0.3.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
