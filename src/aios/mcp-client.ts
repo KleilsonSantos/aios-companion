@@ -96,6 +96,17 @@ export type DocsAuditResult = {
   raw: unknown
 }
 
+/** Versão de contrato que o Companion espera do AIOS (`PIPELINE_CONTRACT_VERSION`). */
+export const EXPECTED_CONTRACT_VERSION = '1'
+
+export type ContractVersionResult = {
+  ok: boolean
+  expected: string
+  actual?: string
+  summary: string
+  raw?: unknown
+}
+
 /** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
 export class AiosMcpSession {
   private client: Client | null = null
@@ -441,6 +452,29 @@ export class AiosMcpSession {
       ? `docs audit OK · present=${obj.present?.length ?? '?'} · missing=0`
       : `docs audit FAIL · missing=${missing.length} · findings=${findings.length}`
     return { ok, summary, missing, findings, raw }
+  }
+
+  async contractVersion(): Promise<ContractVersionResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_contract_version',
+      arguments: {},
+    })
+    const text = toolText(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    const raw = JSON.parse(text) as { contractVersion?: string | number }
+    const actual = String(raw.contractVersion ?? '')
+    const ok = actual === EXPECTED_CONTRACT_VERSION
+    return {
+      ok,
+      expected: EXPECTED_CONTRACT_VERSION,
+      actual,
+      summary: ok
+        ? `contract v${actual} OK`
+        : `contract MISMATCH · companion espera ${EXPECTED_CONTRACT_VERSION} · AIOS=${actual || '?'}`,
+      raw,
+    }
   }
 
   async close(): Promise<void> {
