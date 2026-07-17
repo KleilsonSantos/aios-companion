@@ -18,6 +18,7 @@ import {
   listWorkspacesMcp,
   memoryRecallMcp,
   memoryRememberMcp,
+  runAcrossWorkspacesMcp,
   runPipelineMcp,
   workspaceRemoveMcp,
   workspaceUpsertMcp,
@@ -46,6 +47,7 @@ Uso:
   companion chat [--mcp|--cli] [--local]
   companion caps [git|github] [--json]
   companion run "<intent>" [--json] [--repo path] [--workspace id] [--scope path]
+  companion run-all "<intent>" [--json] [--workspace id]… [--scope path]
   companion gov [--json] [--provider id]
   companion decide "<resumo>" [--kind note] [--verdict info|pass|fail] [--json]
   companion audit [--json] [--repo path] [--workspace id]
@@ -65,6 +67,7 @@ Uso:
   Chat (default): MCP session + aios_provider_chat; análise → pipeline; fallback local.
   Caps: adapters Git/GitHub on-demand (CLI existentes; sem watchers).
   Run: núcleo AIOS via aios_run_pipeline (on-demand; também auto no chat).
+  Run-all: aios_run_across_workspaces (pipeline em N workspaces).
   Gov: aios_governance_status (health + attention).
   Decide: aios_governance_record (log de decisões).
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
@@ -233,6 +236,61 @@ async function cmdRun(argv: string[]): Promise<void> {
       console.log(`skipped: ${out.workflow.skipped.join(', ')}`)
     }
     console.log(`verdict: ${out.passed ? 'passed' : 'failed'}`)
+  }
+  if (!out.passed) process.exitCode = 1
+}
+
+async function cmdRunAll(argv: string[]): Promise<void> {
+  const jsonOnly = argv.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = argv.indexOf(name)
+    if (i < 0) return undefined
+    return argv[i + 1]
+  }
+  const workspaceIds: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--workspace' && argv[i + 1]) {
+      workspaceIds.push(argv[i + 1]!)
+      i++
+    }
+  }
+  const flagNames = new Set(['--workspace', '--scope', '--json'])
+  const input = argv
+    .filter((a, i) => {
+      if (a.startsWith('-')) return false
+      if (i > 0 && flagNames.has(argv[i - 1]!)) return false
+      return true
+    })
+    .join(' ')
+    .trim()
+  if (!input) {
+    console.error(
+      'Uso: companion run-all "<intent>" [--json] [--workspace id]… [--scope path]',
+    )
+    process.exitCode = 1
+    return
+  }
+  const home = resolveAiosHome()
+  const out = await runAcrossWorkspacesMcp({
+    input,
+    aiosHome: home,
+    workspaceIds: workspaceIds.length ? workspaceIds : undefined,
+    scope: flagVal('--scope'),
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+  } else {
+    console.log(out.summary)
+    for (const r of out.results) {
+      const status = r.error
+        ? `error: ${r.error}`
+        : r.verdictPassed
+          ? 'passed'
+          : 'failed'
+      console.log(
+        `  [${status}] ${r.workspaceId || '?'}${r.intentKind ? ` · ${r.intentKind}` : ''}`,
+      )
+    }
   }
   if (!out.passed) process.exitCode = 1
 }
@@ -622,7 +680,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /brief · /workspaces · /gov · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /gov · /decide · /audit · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -631,6 +689,34 @@ async function cmdChat(
       const line = await rl.question('you> ')
       if (!line.trim()) continue
       if (line.trim() === '/quit' || line.trim() === '/exit') break
+      if (line.trim().startsWith('/run-all ')) {
+        const intent = line.trim().slice('/run-all '.length).trim()
+        if (!intent) {
+          console.log('companion> Uso: /run-all <intent curto>\n')
+          continue
+        }
+        try {
+          const allMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await allMcp.connect()
+          const out = await allMcp.runAcrossWorkspaces({ input: intent })
+          console.log(`companion · run-all> ${out.summary}`)
+          for (const r of out.results.slice(0, 12)) {
+            const status = r.error
+              ? 'error'
+              : r.verdictPassed
+                ? 'ok'
+                : 'fail'
+            console.log(`  [${status}] ${r.workspaceId || '?'}`)
+          }
+          console.log('')
+          if (!mcp) await allMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · run-all> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (
         line.trim() === '/workspaces' ||
         line.trim() === '/ws' ||
@@ -844,6 +930,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'run' || cmd === 'pipeline') {
     await cmdRun(argv.slice(1))
+    return
+  }
+  if (cmd === 'run-all' || cmd === 'runall' || cmd === 'across') {
+    await cmdRunAll(argv.slice(1))
     return
   }
   if (cmd === 'gov' || cmd === 'governance') {
