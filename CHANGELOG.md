@@ -5,12 +5,22 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-17
+
+Marco **MCP completo** — providers, policies, inspeção de governação e memory clear. Sem voz / sem UX cinemática.
+
 ### Added
 
 - `companion providers` / `/providers` — `aios_provider_health` + `aios_provider_models` (#58)
 - `companion policies` / `/policies` — `aios_load_policies` (#61)
 - `companion gov audit` / `/gov audit` — `aios_governance_audit` (#64)
 - `companion memory clear --yes` — `aios_memory_clear` (#67)
+
+### Notes
+
+- Superfície MCP `aios_*` consumível pelo Companion está coberta (ADR-0014)
+- Requer AIOS `v0.18.0+` e `AIOS_HOME`
+- Visão Jarvis/Minority Report: issue [#37](https://github.com/KleilsonSantos/aios-companion/issues/37) (parked)
 
 ## [0.3.0] — 2026-07-17
 
