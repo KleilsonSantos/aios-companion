@@ -4,6 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
+**Versão:** `0.2.0` — [CHANGELOG](./CHANGELOG.md)
+
 ## Em uma frase
 
 O **AIOS governa**; o **Companion conversa** — Conversation Manager + MCP/CLI, sem duplicar engines.
