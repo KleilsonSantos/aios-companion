@@ -7,6 +7,7 @@ import {
   parseChatBody,
   parseMemoryBody,
   parseMemoryChatCommand,
+  parseWorkspaceBody,
   publicTurns,
 } from './helpers.ts'
 
@@ -132,5 +133,13 @@ describe('surface helpers', () => {
       }),
       { action: 'remember', workspaceId: 'aios', content: 'hi' },
     )
+  })
+
+  it('parseWorkspaceBody requires workspaceId', () => {
+    assert.deepEqual(parseWorkspaceBody({ workspaceId: '  companion  ' }), {
+      workspaceId: 'companion',
+    })
+    assert.equal('error' in parseWorkspaceBody({}), true)
+    assert.equal('error' in parseWorkspaceBody(null), true)
   })
 })

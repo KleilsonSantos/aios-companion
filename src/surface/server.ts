@@ -1,5 +1,5 @@
 /**
- * Companion surface API — thin HTTP over MCP + Conversation Manager (#79 / #82).
+ * Companion surface API — thin HTTP over MCP + Conversation Manager (#79 / #82 / #88).
  * Port: COMPANION_SURFACE_PORT or 8790 (avoids AIOS console 8787).
  * Resource-Aware: one MCP session for process lifetime; no polling here.
  */
@@ -21,8 +21,15 @@ import {
   parseChatBody,
   parseMemoryBody,
   parseMemoryChatCommand,
+  parseWorkspaceBody,
 } from './helpers.ts'
 import { loadSession, saveSession } from './persist.ts'
+import {
+  chunkText,
+  writeSseEvent,
+  writeSseHeaders,
+  type StreamPhase,
+} from './stream.ts'
 import type {
   GovernanceStatusResult,
   MemoryRecallResult,
@@ -186,6 +193,39 @@ async function handleMemoryChat(
   return pushLocalAssistant(conv, message, remembered.summary)
 }
 
+async function runChatTurn(
+  conv: ConversationSession,
+  session: AiosMcpSession,
+  message: string,
+  localOnly: boolean,
+): Promise<{ turn: ChatTurn; phase: StreamPhase }> {
+  const memTurn = await handleMemoryChat(conv, session, message)
+  if (memTurn) return { turn: memTurn, phase: 'memory' }
+
+  if (localOnly) {
+    return { turn: respondLocal(conv, message), phase: 'local' }
+  }
+  if (isPipelineIntent(message)) {
+    return {
+      turn: await respondWithPipeline(conv, message, session, {
+        workspaceId: memoryWorkspaceId,
+      }),
+      phase: 'pipeline',
+    }
+  }
+  return {
+    turn: await respondWithProvider(conv, message, session),
+    phase: 'provider',
+  }
+}
+
+function resolvePhasePreview(message: string, localOnly: boolean): StreamPhase {
+  if (parseMemoryChatCommand(message)) return 'memory'
+  if (localOnly) return 'local'
+  if (isPipelineIntent(message)) return 'pipeline'
+  return 'provider'
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
@@ -217,6 +257,52 @@ const server = createServer(async (req, res) => {
     return
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/workspaces') {
+    try {
+      const session = await ensureMcp()
+      const listed = await session.listWorkspaces()
+      sendJson(res, 200, {
+        ok: true,
+        selectedWorkspaceId: memoryWorkspaceId,
+        count: listed.count,
+        summary: listed.summary,
+        workspaces: listed.workspaces.map((w) => ({
+          id: w.id,
+          name: w.name,
+          path: w.path || w.repoPath,
+          default: w.default === true,
+        })),
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/workspace') {
+    try {
+      const parsed = parseWorkspaceBody(await readJsonBody(req))
+      if ('error' in parsed) {
+        sendJson(res, 400, { error: parsed.error })
+        return
+      }
+      const session = await ensureMcp()
+      const conv = await ensureConversation(session)
+      memoryWorkspaceId = parsed.workspaceId
+      lastMemory = await session.memoryRecall({
+        workspaceId: memoryWorkspaceId,
+        limit: 5,
+      })
+      persistConversation()
+      sendJson(res, 200, snapshot(conv))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/chat') {
     try {
       const parsed = parseChatBody(await readJsonBody(req))
@@ -226,18 +312,12 @@ const server = createServer(async (req, res) => {
       }
       const session = await ensureMcp()
       const conv = await ensureConversation(session)
-
-      const memTurn = await handleMemoryChat(conv, session, parsed.message)
-      let turn = memTurn
-      if (!turn) {
-        if (parsed.localOnly) {
-          turn = respondLocal(conv, parsed.message)
-        } else if (isPipelineIntent(parsed.message)) {
-          turn = await respondWithPipeline(conv, parsed.message, session)
-        } else {
-          turn = await respondWithProvider(conv, parsed.message, session)
-        }
-      }
+      const { turn } = await runChatTurn(
+        conv,
+        session,
+        parsed.message,
+        parsed.localOnly,
+      )
 
       sendJson(res, 200, {
         turn: {
@@ -252,6 +332,57 @@ const server = createServer(async (req, res) => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/chat/stream') {
+    try {
+      const parsed = parseChatBody(await readJsonBody(req))
+      if ('error' in parsed) {
+        sendJson(res, 400, { error: parsed.error })
+        return
+      }
+      const session = await ensureMcp()
+      const conv = await ensureConversation(session)
+
+      writeSseHeaders(res)
+      const preview = resolvePhasePreview(parsed.message, parsed.localOnly)
+      writeSseEvent(res, 'status', { phase: preview })
+
+      const { turn, phase } = await runChatTurn(
+        conv,
+        session,
+        parsed.message,
+        parsed.localOnly,
+      )
+      if (phase !== preview) {
+        writeSseEvent(res, 'status', { phase })
+      }
+
+      for (const piece of chunkText(turn.content)) {
+        writeSseEvent(res, 'delta', { text: piece })
+      }
+
+      writeSseEvent(res, 'done', {
+        turn: {
+          role: turn.role,
+          content: turn.content,
+          at: turn.at,
+          via: turn.via,
+        },
+        ...snapshot(conv),
+      })
+      persistConversation()
+      res.end()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (!res.headersSent) {
+        sendJson(res, 500, { error: message })
+        return
+      }
+      writeSseEvent(res, 'error', { error: message })
+      res.end()
     }
     return
   }

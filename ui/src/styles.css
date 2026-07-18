@@ -183,6 +183,60 @@ body {
   color: #6b2e12;
 }
 
+.chip.ws {
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ws-wrap {
+  position: relative;
+}
+
+.ws-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 5;
+  min-width: 11rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background: color-mix(in srgb, var(--paper) 92%, #1a2e24);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px color-mix(in srgb, #0a1a12 18%, transparent);
+}
+
+.ws-menu li {
+  margin: 0;
+}
+
+.ws-menu button {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.45rem;
+  cursor: pointer;
+}
+
+.ws-menu button:hover,
+.ws-menu button.active {
+  background: color-mix(in srgb, var(--moss) 18%, transparent);
+  color: var(--moss-deep);
+}
+
+.ws-empty {
+  padding: 0.4rem 0.45rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
 .ghost {
   appearance: none;
   border: 1px solid var(--line);

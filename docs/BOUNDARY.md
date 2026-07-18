@@ -26,6 +26,8 @@
 - Companion may expose a **local web surface** (`companion surface` / `pnpm surface`) that consumes the same MCP/CLI contracts.
 - It may show consumption + memory **read/write via MCP** — never a second Memory Engine.
 - Conversation may persist **locally** (file under `~/.aios-companion/`); not a multi-user store.
+- Chat may use **SSE progressive reveal** of completed replies (`/api/chat/stream`); true token streaming stays an AIOS concern.
+- Workspace selection may call `aios_list_workspaces` **on demand** — no polling loop.
 - It must not become a second control plane or a clone of the AIOS console.
 - Refresh / recall are **on-demand** (Resource-Aware). Destructive clear stays CLI (`--yes`).
 

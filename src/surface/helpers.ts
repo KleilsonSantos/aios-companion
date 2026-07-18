@@ -198,6 +198,19 @@ export function parseMemoryChatCommand(message: string): MemoryChatCommand | nul
   return { kind: 'recall', workspaceId: defaultWorkspaceId() }
 }
 
+export function parseWorkspaceBody(body: unknown):
+  | { workspaceId: string }
+  | { error: string } {
+  if (!body || typeof body !== 'object') {
+    return { error: 'JSON body required' }
+  }
+  const obj = body as { workspaceId?: unknown }
+  if (typeof obj.workspaceId !== 'string' || !obj.workspaceId.trim()) {
+    return { error: 'body.workspaceId required (non-empty string)' }
+  }
+  return { workspaceId: obj.workspaceId.trim() }
+}
+
 export function parseMemoryBody(body: unknown): {
   action: 'recall' | 'remember'
   workspaceId: string

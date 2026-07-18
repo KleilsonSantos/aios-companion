@@ -5,6 +5,22 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-18
+
+**Surface stream + workspace** — progressive chat reveal and on-demand workspace chip. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.
+
+### Added
+
+- `POST /api/chat/stream` (SSE) — status + progressive reveal of completed replies (#88)
+- Workspace chip — `GET /api/workspaces` · `POST /api/workspace`; pipeline uses selected workspace
+- UI: stream deltas while waiting; workspace menu loads on click (no polling)
+
+### Notes
+
+- AIOS `aios_provider_chat` remains non-streaming; Companion reveals the finished text progressively
+- Resource-Aware: workspaces fetched on demand only
+- Keep `POST /api/chat` as non-SSE fallback
+
 ## [0.8.0] — 2026-07-18
 
 **Surface session continuity** — persist conversation, open browser, doctor probe. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.
