@@ -22,6 +22,7 @@ import {
   parseMemoryBody,
   parseMemoryChatCommand,
 } from './helpers.ts'
+import { loadSession, saveSession } from './persist.ts'
 import type {
   GovernanceStatusResult,
   MemoryRecallResult,
@@ -79,13 +80,23 @@ async function ensureConversation(
   session: AiosMcpSession,
 ): Promise<ConversationSession> {
   if (conversation) return conversation
+  const stored = loadSession()
+  if (stored) {
+    conversation = stored
+    return conversation
+  }
   try {
     lastOperational = await session.operationalState()
   } catch {
     lastOperational = null
   }
   conversation = createSession(lastOperational ?? undefined)
+  saveSession(conversation)
   return conversation
+}
+
+function persistConversation(): void {
+  if (conversation) saveSession(conversation)
 }
 
 async function refreshControlPlane(session: AiosMcpSession): Promise<string | undefined> {
@@ -237,6 +248,25 @@ const server = createServer(async (req, res) => {
         },
         ...snapshot(conv),
       })
+      persistConversation()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/session/reset') {
+    try {
+      const session = await ensureMcp()
+      try {
+        lastOperational = await session.operationalState()
+      } catch {
+        lastOperational = null
+      }
+      conversation = createSession(lastOperational ?? undefined)
+      persistConversation()
+      sendJson(res, 200, snapshot(conversation))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       sendJson(res, 500, { error: message })
@@ -264,6 +294,7 @@ const server = createServer(async (req, res) => {
         workspaceId: parsed.workspaceId,
         limit: 5,
       })
+      persistConversation()
       sendJson(res, 200, snapshot(conv))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -293,6 +324,7 @@ server.listen(port, '127.0.0.1', () => {
 })
 
 async function shutdown(): Promise<void> {
+  persistConversation()
   if (mcp) {
     await mcp.close().catch(() => undefined)
     mcp = null

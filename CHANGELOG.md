@@ -5,6 +5,22 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-07-18
+
+**Surface session continuity** — persist conversation, open browser, doctor probe. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.
+
+### Added
+
+- Persist surface conversation to `~/.aios-companion/surface-session.json` (override: `COMPANION_SESSION_PATH`) (#85)
+- `POST /api/session/reset` — new conversation (keeps file updated)
+- `companion surface` opens the UI in the default browser once (`--no-open` to skip)
+- Doctor `surface` check — probes `GET /api/health` (info if down; optional)
+
+### Notes
+
+- Resource-Aware: on-demand writes; no polling; turn cap ~120
+- Session is local-only (no cloud sync)
+
 ## [0.7.0] — 2026-07-18
 
 **Surface depth** — consumption + memory on the web surface; CLI launcher. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.

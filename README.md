@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Version:** `0.7.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.8.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
@@ -40,11 +40,13 @@ One composition — **Companion** brand, conversation, operational line (with **
 ```bash
 export AIOS_HOME=/path/to/ai-operating-system
 pnpm install
-pnpm companion surface         # or: pnpm surface — API :8790 + UI :5174
+pnpm companion surface         # API :8790 + UI :5174 · opens browser once
+pnpm companion surface --no-open
 pnpm companion surface --api-only
 ```
 
 - Refresh / memory recall are **on-demand** (Resource-Aware; no polling loop)
+- Conversation persists locally (`~/.aios-companion/surface-session.json`)
 - Chat: analysis → `aios_run_pipeline`; `/memory` · `/memory remember …` · `/memory remember @ws …` → Memory Engine; else `aios_provider_chat` (local fallback)
 - Clear memory stays CLI-only: `companion memory clear --yes`
 
