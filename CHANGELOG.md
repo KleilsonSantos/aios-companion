@@ -5,6 +5,19 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-07-18
+
+**MCP HTTP smoke** — opt-in live bridge check Companion ↔ AIOS Streamable HTTP. Not in default CI.
+
+### Added
+
+- `pnpm smoke:mcp-http` — spawn ephemeral AIOS HTTP MCP via `AIOS_HOME`, assert `/health` + connect + `aios_contract_version` (#100)
+
+### Notes
+
+- Skips (exit 0) if `AIOS_HOME` unset; requires AIOS **v0.25.0+**
+- Resource-Aware: no idle listener in default CI
+
 ## [0.11.0] — 2026-07-18
 
 **Chat locale** — Conversation Manager defaults to US English; Portuguese via `COMPANION_LOCALE=pt`. Surface UI chrome was already EN. Cinematic UX (#37) stays parked.

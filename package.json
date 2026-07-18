@@ -1,6 +1,6 @@
 {
   "name": "aios-companion",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "type": "module",
   "description": "AIOS Companion \u2014 Conversation Manager + surface UI; consumes the AIOS control plane (ADR-0014)",
@@ -19,6 +19,7 @@
     "surface:ui": "vite --config ui/vite.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p ui/tsconfig.json --noEmit",
     "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "smoke:mcp-http": "node --experimental-strip-types ./scripts/smoke-mcp-http.ts",
     "lint": "node -e \"process.exit(0)\""
   },
   "dependencies": {
