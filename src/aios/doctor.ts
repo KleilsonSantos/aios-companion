@@ -8,6 +8,7 @@ import {
   AiosMcpSession,
   EXPECTED_CONTRACT_VERSION,
 } from './mcp-client.ts'
+import { probeSurfaceHealth } from '../surface/health.ts'
 
 export type DoctorCheck = {
   id: string
@@ -194,6 +195,23 @@ export async function runDoctor(
     })
   } finally {
     await session.close().catch(() => undefined)
+  }
+
+  // Surface API optional — info when down (#85)
+  const probe = await probeSurfaceHealth()
+  if (probe.ok) {
+    checks.push({
+      id: 'surface',
+      ok: true,
+      detail: probe.detail,
+    })
+  } else {
+    checks.push({
+      id: 'surface',
+      ok: true,
+      severity: 'info',
+      detail: `${probe.detail} (optional — run companion surface)`,
+    })
   }
 
   const ok = checks.every((c) => c.ok)
