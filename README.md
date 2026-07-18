@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Version:** `0.6.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.7.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
@@ -33,18 +33,20 @@ Visão UX futura (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMA
 export AIOS_HOME=/path/to/ai-operating-system
 ```
 
-## Surface UI (minimal)
+## Surface UI
 
-One composition — **Companion** brand, conversation, light operational line, attention. Consumes AIOS via MCP (no engine reimplementation). Cinematic UX remains parked ([#37](https://github.com/KleilsonSantos/aios-companion/issues/37)).
+One composition — **Companion** brand, conversation, operational line (with **consumption**), attention + **memory**. Consumes AIOS via MCP (no engine reimplementation). Cinematic UX remains parked ([#37](https://github.com/KleilsonSantos/aios-companion/issues/37)).
 
 ```bash
 export AIOS_HOME=/path/to/ai-operating-system
 pnpm install
-pnpm surface                   # API :8790 + UI :5174 (proxied /api)
+pnpm companion surface         # or: pnpm surface — API :8790 + UI :5174
+pnpm companion surface --api-only
 ```
 
-- Refresh is **on-demand** (Resource-Aware; no polling loop)
-- Chat routes analysis intents to `aios_run_pipeline`; otherwise `aios_provider_chat` (local fallback)
+- Refresh / memory recall are **on-demand** (Resource-Aware; no polling loop)
+- Chat: analysis → `aios_run_pipeline`; `/memory` · `/memory remember …` · `/memory remember @ws …` → Memory Engine; else `aios_provider_chat` (local fallback)
+- Clear memory stays CLI-only: `companion memory clear --yes`
 
 ## CLI usage (MVP)
 

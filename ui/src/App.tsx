@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
 import {
   fetchSurface,
+  postMemory,
   refreshSurface,
   sendChat,
   type SurfaceSnapshot,
@@ -17,17 +18,19 @@ export function App() {
   const listRef = useRef<HTMLDivElement>(null)
   const booted = useRef(false)
 
+  function applySnap(data: SurfaceSnapshot) {
+    setSnap(data)
+    setTurns(data.turns)
+    setError(null)
+  }
+
   useEffect(() => {
     if (booted.current) return
     booted.current = true
     void (async () => {
       try {
         const data = await fetchSurface()
-        startTransition(() => {
-          setSnap(data)
-          setTurns(data.turns)
-          setError(null)
-        })
+        startTransition(() => applySnap(data))
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       }
@@ -44,10 +47,20 @@ export function App() {
     setError(null)
     try {
       const data = await refreshSurface()
-      startTransition(() => {
-        setSnap(data)
-        setTurns(data.turns)
+      startTransition(() => applySnap(data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function onRecallMemory() {
+    setError(null)
+    try {
+      const data = await postMemory({
+        action: 'recall',
+        workspaceId: snap?.memory.workspaceId,
       })
+      startTransition(() => applySnap(data))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -70,7 +83,7 @@ export function App() {
     ])
     try {
       const out = await sendChat(message)
-      startTransition(() => setTurns(out.turns))
+      startTransition(() => applySnap(out))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -81,6 +94,8 @@ export function App() {
   const attention = snap?.governance.attention ?? []
   const errors = attention.filter((a) => a.severity === 'error').length
   const warns = attention.filter((a) => a.severity === 'warn').length
+  const consumption = snap?.governance.consumption
+  const memory = snap?.memory
 
   return (
     <div className="stage">
@@ -104,6 +119,11 @@ export function App() {
           {snap?.operational.branch && (
             <span className="state-meta">{snap.operational.branch}</span>
           )}
+          {consumption && (
+            <span className={`chip ${consumption.tone}`} title="provider.chat consumption">
+              {consumption.label}
+            </span>
+          )}
           <button
             type="button"
             className="ghost"
@@ -116,7 +136,8 @@ export function App() {
 
         {error && (
           <p className="banner" role="alert">
-            {error}. Start the API with <code>pnpm surface:api</code> (port 8790).
+            {error}. Start with <code>companion surface</code> or{' '}
+            <code>pnpm surface</code> (API :8790).
           </p>
         )}
 
@@ -124,8 +145,9 @@ export function App() {
           <div className="transcript" ref={listRef}>
             {turns.length === 0 && (
               <p className="empty">
-                Ask for status, a short note, or an analysis — pipeline intents
-                route to AIOS.
+                Ask for status, remember a note with{' '}
+                <code>/memory remember …</code>, or run an analysis — pipeline
+                intents route to AIOS.
               </p>
             )}
             {turns.map((t, i) => (
@@ -147,7 +169,7 @@ export function App() {
               id="msg"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Message Companion…"
+              placeholder="Message Companion… (/memory)"
               autoComplete="off"
               disabled={sending}
             />
@@ -157,33 +179,69 @@ export function App() {
           </form>
         </section>
 
-        <aside className="attention" aria-label="Attention">
-          <div className="att-head">
-            <h2>Attention</h2>
-            <span>
-              {errors} err · {warns} warn
-            </span>
+        <aside className="rail" aria-label="Attention and memory">
+          <div className="attention">
+            <div className="att-head">
+              <h2>Attention</h2>
+              <span>
+                {errors} err · {warns} warn
+              </span>
+            </div>
+            {attention.length === 0 ? (
+              <p className="att-empty">Nothing flagged — refresh after control-plane changes.</p>
+            ) : (
+              <ul>
+                {attention.slice(0, 6).map((a, i) => (
+                  <li key={a.id || `${a.title}-${i}`} className={a.severity || 'info'}>
+                    <strong>{a.title || a.id || 'Item'}</strong>
+                    {a.detail && <span>{a.detail}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {snap?.governance.providerOk !== undefined && (
+              <p className="att-foot">
+                Provider {snap.governance.providerOk ? 'up' : 'down'}
+                {snap.governance.providers?.length
+                  ? ` · ${snap.governance.providers.join(', ')}`
+                  : ''}
+              </p>
+            )}
           </div>
-          {attention.length === 0 ? (
-            <p className="att-empty">Nothing flagged — refresh after control-plane changes.</p>
-          ) : (
-            <ul>
-              {attention.slice(0, 6).map((a, i) => (
-                <li key={a.id || `${a.title}-${i}`} className={a.severity || 'info'}>
-                  <strong>{a.title || a.id || 'Item'}</strong>
-                  {a.detail && <span>{a.detail}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          {snap?.governance.providerOk !== undefined && (
-            <p className="att-foot">
-              Provider {snap.governance.providerOk ? 'up' : 'down'}
-              {snap.governance.providers?.length
-                ? ` · ${snap.governance.providers.join(', ')}`
-                : ''}
+
+          <div className="memory">
+            <div className="att-head">
+              <h2>Memory</h2>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => void onRecallMemory()}
+                disabled={pending}
+              >
+                Recall
+              </button>
+            </div>
+            <p className="mem-summary">
+              {memory?.summary || 'Not loaded'}
+              {memory?.workspaceId ? ` · ${memory.workspaceId}` : ''}
             </p>
-          )}
+            {!memory?.entries.length ? (
+              <p className="att-empty">
+                Empty — try <code>/memory remember …</code> in chat.
+              </p>
+            ) : (
+              <ul>
+                {memory.entries.map((e, i) => (
+                  <li key={e.id || `${e.at}-${i}`}>
+                    <span>{(e.content || '').slice(0, 140)}</span>
+                    {e.tags?.length ? (
+                      <em>{e.tags.join(', ')}</em>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </aside>
       </main>
     </div>
