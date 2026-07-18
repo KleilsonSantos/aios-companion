@@ -47,27 +47,45 @@ export async function runDoctor(
     }
   }
 
+  const mcpUrl = (process.env.AIOS_MCP_URL || '').trim()
   const mcpEntry = join(aiosHome, 'apps', 'mcp', 'src', 'index.ts')
   const mcpOk = existsSync(mcpEntry)
-  checks.push({
-    id: 'mcp_entry',
-    ok: mcpOk,
-    detail: mcpOk ? mcpEntry : `em falta: ${mcpEntry}`,
-  })
 
-  if (!mcpOk) {
-    return {
-      ok: false,
-      aiosHome,
-      checks,
-      summary: 'doctor FAIL · MCP AIOS não encontrado',
+  if (mcpUrl) {
+    checks.push({
+      id: 'mcp_entry',
+      ok: true,
+      severity: 'info',
+      detail: `skipped — AIOS_MCP_URL=${mcpUrl}`,
+    })
+  } else {
+    checks.push({
+      id: 'mcp_entry',
+      ok: mcpOk,
+      detail: mcpOk ? mcpEntry : `em falta: ${mcpEntry}`,
+    })
+    if (!mcpOk) {
+      return {
+        ok: false,
+        aiosHome,
+        checks,
+        summary: 'doctor FAIL · MCP AIOS não encontrado',
+      }
     }
   }
 
   const session = new AiosMcpSession(aiosHome)
   try {
     await session.connect()
-    checks.push({ id: 'mcp_connect', ok: true, detail: 'stdio OK' })
+    const kind = session.getTransportKind()
+    checks.push({
+      id: 'mcp_connect',
+      ok: true,
+      detail:
+        kind === 'http'
+          ? `http OK · ${session.getHttpUrl()}`
+          : 'stdio OK',
+    })
 
     const contract = await session.contractVersion()
     checks.push({
