@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen)](package.json)
 
-**Version:** `0.10.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.11.0` — [CHANGELOG](./CHANGELOG.md)
 
 Product documentation is **US English** (mirrors AIOS [ADR-0018](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0018-documentation-language.md)).
 
@@ -49,6 +49,8 @@ Future UX vision (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMA
 export AIOS_HOME=/path/to/ai-operating-system
 # optional — reuse a running AIOS Streamable HTTP MCP (ADR-0022):
 # export AIOS_MCP_URL=http://127.0.0.1:8791/mcp
+# optional — Portuguese chat copy (default is English):
+# export COMPANION_LOCALE=pt
 ```
 
 ### Verify your install

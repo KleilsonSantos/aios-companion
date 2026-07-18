@@ -104,6 +104,7 @@ Env:
   COMPANION_UI_PORT         Vite UI port (default 5174)
   COMPANION_SESSION_PATH    override surface session JSON path
   COMPANION_SURFACE_URL     doctor/health base URL (default http://127.0.0.1:$PORT)
+  COMPANION_LOCALE          chat copy locale: en (default) | pt
 `)
 }
 

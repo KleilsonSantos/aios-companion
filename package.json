@@ -1,9 +1,9 @@
 {
   "name": "aios-companion",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
-  "description": "AIOS Companion — Conversation Manager + surface UI; consumes the AIOS control plane (ADR-0014)",
+  "description": "AIOS Companion \u2014 Conversation Manager + surface UI; consumes the AIOS control plane (ADR-0014)",
   "license": "MIT",
   "packageManager": "pnpm@11.5.2",
   "engines": {

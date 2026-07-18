@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import type { ChatTurn, ConversationSession } from '../conversation/manager.ts'
+import { resolveLocale, type CompanionLocale } from '../conversation/locale.ts'
 
 const MAX_TURNS = 120
 
@@ -36,10 +37,15 @@ export function parseStoredSession(raw: unknown): ConversationSession | null {
   const turns = obj.turns.filter(isChatTurn)
   if (turns.length === 0) return null
   if (!turns.some((t) => t.role === 'system')) return null
+  const locale: CompanionLocale =
+    obj.locale === 'pt' || obj.locale === 'en'
+      ? obj.locale
+      : resolveLocale()
   return {
     id: obj.id,
     createdAt: obj.createdAt,
     turns: turns.slice(-MAX_TURNS),
+    locale,
   }
 }
 
@@ -65,6 +71,7 @@ export function saveSession(
     id: session.id,
     createdAt: session.createdAt,
     turns: session.turns.slice(-MAX_TURNS),
+    locale: session.locale ?? resolveLocale(),
   }
   writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
   return path

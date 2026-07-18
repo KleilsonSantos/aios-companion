@@ -5,6 +5,16 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-07-18
+
+**Chat locale** — Conversation Manager defaults to US English; Portuguese via `COMPANION_LOCALE=pt`. Surface UI chrome was already EN. Cinematic UX (#37) stays parked.
+
+### Added
+
+- `src/conversation/locale.ts` — tiny en/pt copy module (no i18n library) (#97)
+- `COMPANION_LOCALE` (`en` default · `pt` / `pt-BR` / `pt-PT`) for system prompt + local replies
+- Session persistence stores `locale`
+
 ### Changed
 
 - Product docs migrated to US English (README, BOUNDARY, VISION, AGENTS; mirrors AIOS ADR-0018) (#94)
