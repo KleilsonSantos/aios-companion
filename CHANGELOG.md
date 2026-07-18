@@ -5,6 +5,21 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-17
+
+Minimal **surface UI** — one composition (conversation + state + attention) over MCP. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.
+
+### Added
+
+- Local web surface (`pnpm surface`) — Vite + React UI + thin HTTP API (#79)
+- `GET /api/surface`, `POST /api/chat`, `POST /api/refresh` via Conversation Manager + MCP
+- On-demand refresh only (Resource-Aware; no aggressive polling)
+
+### Notes
+
+- Does not replace the AIOS console; does not reimplement engines
+- CLI remains the primary automation surface
+
 ## [0.5.0] — 2026-07-17
 
 Control-plane **consumption + governance v2** surface. Requires AIOS **v0.23.0+**.

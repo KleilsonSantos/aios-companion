@@ -21,8 +21,14 @@
 - Embutir AIOS como submodule/pasta de código interno
 - Voz no MVP sem CM de chat estável
 
-## Evolução
+## Surface UI (v0.6+)
 
-Chat → Conversation Manager maduro → voz → capabilities/watchers (Resource-Aware).
+- Companion may expose a **local web surface** (`pnpm surface`) that consumes the same MCP/CLI contracts.
+- It must not become a second control plane or a clone of the AIOS console.
+- Refresh is **on-demand** (Resource-Aware).
 
-Visão UX cinemática (Jarvis / Minority Report) — **parked**: [`VISION-UX-CINEMATIC.md`](./VISION-UX-CINEMATIC.md) · [#37](https://github.com/KleilsonSantos/aios-companion/issues/37).
+## Evolution
+
+Chat → Conversation Manager → minimal surface UI → voice → capabilities/watchers (Resource-Aware).
+
+Cinematic UX vision (Jarvis / Minority Report) — **parked**: [`VISION-UX-CINEMATIC.md`](./VISION-UX-CINEMATIC.md) · [#37](https://github.com/KleilsonSantos/aios-companion/issues/37).
