@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Version:** `0.8.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.9.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
@@ -47,6 +47,7 @@ pnpm companion surface --api-only
 
 - Refresh / memory recall are **on-demand** (Resource-Aware; no polling loop)
 - Conversation persists locally (`~/.aios-companion/surface-session.json`)
+- Chat streams via SSE progressive reveal (`POST /api/chat/stream`); workspace chip selects AIOS workspace on demand
 - Chat: analysis → `aios_run_pipeline`; `/memory` · `/memory remember …` · `/memory remember @ws …` → Memory Engine; else `aios_provider_chat` (local fallback)
 - Clear memory stays CLI-only: `companion memory clear --yes`
 

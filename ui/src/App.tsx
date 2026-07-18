@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
 import {
   fetchSurface,
+  fetchWorkspaces,
   postMemory,
   refreshSurface,
   resetSession,
-  sendChat,
+  selectWorkspace,
+  sendChatStream,
   type SurfaceSnapshot,
   type SurfaceTurn,
+  type SurfaceWorkspace,
 } from './api'
 
 export function App() {
@@ -15,6 +18,10 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [streamPhase, setStreamPhase] = useState<string | null>(null)
+  const [wsOpen, setWsOpen] = useState(false)
+  const [workspaces, setWorkspaces] = useState<SurfaceWorkspace[] | null>(null)
+  const [wsLoading, setWsLoading] = useState(false)
   const [pending, startTransition] = useTransition()
   const listRef = useRef<HTMLDivElement>(null)
   const booted = useRef(false)
@@ -77,28 +84,86 @@ export function App() {
     }
   }
 
+  async function onToggleWorkspaces() {
+    if (wsOpen) {
+      setWsOpen(false)
+      return
+    }
+    setWsOpen(true)
+    if (workspaces) return
+    setWsLoading(true)
+    setError(null)
+    try {
+      const listed = await fetchWorkspaces()
+      setWorkspaces(listed.workspaces)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setWsOpen(false)
+    } finally {
+      setWsLoading(false)
+    }
+  }
+
+  async function onPickWorkspace(id: string) {
+    setError(null)
+    setWsOpen(false)
+    try {
+      const data = await selectWorkspace(id)
+      startTransition(() => applySnap(data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   async function onSend(e: FormEvent) {
     e.preventDefault()
     const message = draft.trim()
     if (!message || sending) return
     setSending(true)
+    setStreamPhase(null)
     setError(null)
     setDraft('')
+    const at = new Date().toISOString()
     setTurns((prev) => [
       ...prev,
+      { role: 'user', content: message, at },
       {
-        role: 'user',
-        content: message,
+        role: 'assistant',
+        content: '',
         at: new Date().toISOString(),
       },
     ])
     try {
-      const out = await sendChat(message)
+      const out = await sendChatStream(message, {
+        onStatus: (phase) => setStreamPhase(phase),
+        onDelta: (text) => {
+          setTurns((prev) => {
+            if (prev.length === 0) return prev
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            next[next.length - 1] = {
+              ...last,
+              content: last.content + text,
+            }
+            return next
+          })
+        },
+      })
       startTransition(() => applySnap(out))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+      setTurns((prev) => {
+        if (prev.length === 0) return prev
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant' && !last.content) {
+          return prev.slice(0, -1)
+        }
+        return prev
+      })
     } finally {
       setSending(false)
+      setStreamPhase(null)
     }
   }
 
@@ -107,6 +172,7 @@ export function App() {
   const warns = attention.filter((a) => a.severity === 'warn').length
   const consumption = snap?.governance.consumption
   const memory = snap?.memory
+  const workspaceLabel = memory?.workspaceId || 'workspace'
 
   return (
     <div className="stage">
@@ -135,6 +201,42 @@ export function App() {
               {consumption.label}
             </span>
           )}
+          <div className="ws-wrap">
+            <button
+              type="button"
+              className="chip ws"
+              onClick={() => void onToggleWorkspaces()}
+              disabled={pending || wsLoading}
+              aria-expanded={wsOpen}
+              title="Select AIOS workspace (on-demand)"
+            >
+              {wsLoading ? 'ws…' : `ws · ${workspaceLabel}`}
+            </button>
+            {wsOpen && (
+              <ul className="ws-menu" role="listbox">
+                {(workspaces || []).length === 0 ? (
+                  <li className="ws-empty">No workspaces registered</li>
+                ) : (
+                  (workspaces || []).map((w) => {
+                    const id = w.id || ''
+                    if (!id) return null
+                    return (
+                      <li key={id}>
+                        <button
+                          type="button"
+                          className={id === workspaceLabel ? 'active' : ''}
+                          onClick={() => void onPickWorkspace(id)}
+                        >
+                          {w.name || id}
+                          {w.default ? ' · default' : ''}
+                        </button>
+                      </li>
+                    )
+                  })
+                )}
+              </ul>
+            )}
+          </div>
           <button
             type="button"
             className="ghost"
@@ -174,7 +276,14 @@ export function App() {
                 key={`${t.at}-${i}`}
                 className={`bubble ${t.role}`}
               >
-                <p>{t.content}</p>
+                <p>
+                  {t.content ||
+                    (sending && i === turns.length - 1 && t.role === 'assistant'
+                      ? streamPhase
+                        ? `… ${streamPhase}`
+                        : '…'
+                      : '')}
+                </p>
                 {t.via && <span className="via">{t.via}</span>}
               </article>
             ))}
