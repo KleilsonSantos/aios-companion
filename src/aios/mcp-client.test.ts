@@ -1,6 +1,28 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { AiosMcpSession } from './mcp-client.ts'
+import {
+  AiosMcpSession,
+  companionClientVersion,
+  resolveMcpHttpUrl,
+  resolveMcpTransportKind,
+} from './mcp-client.ts'
+
+describe('MCP transport selection', () => {
+  it('defaults to stdio when AIOS_MCP_URL unset', () => {
+    assert.equal(resolveMcpTransportKind({}), 'stdio')
+    assert.equal(resolveMcpHttpUrl({}), undefined)
+  })
+
+  it('selects http when AIOS_MCP_URL is set', () => {
+    const env = { AIOS_MCP_URL: ' http://127.0.0.1:8791/mcp ' }
+    assert.equal(resolveMcpTransportKind(env), 'http')
+    assert.equal(resolveMcpHttpUrl(env), 'http://127.0.0.1:8791/mcp')
+  })
+
+  it('companionClientVersion reads package.json', () => {
+    assert.match(companionClientVersion(), /^\d+\.\d+\.\d+$/)
+  })
+})
 
 describe('AiosMcpSession.runPipeline', () => {
   it('resume passed a partir do JSON MCP', async () => {

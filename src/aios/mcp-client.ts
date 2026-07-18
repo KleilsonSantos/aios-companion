@@ -1,15 +1,48 @@
 /**
- * Cliente MCP → AIOS control plane (stdio on-demand / sessão de chat).
- * Consome tools aios_* — não duplica engines (ADR-0014).
+ * Cliente MCP → AIOS control plane (stdio default; Streamable HTTP via AIOS_MCP_URL).
+ * Consome tools aios_* — não duplica engines (ADR-0014 / #91).
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   resolveAiosHome,
   type OperationalStateLite,
 } from './cli-bridge.ts'
+
+export type McpTransportKind = 'stdio' | 'http'
+
+/** Companion package version advertised to MCP servers. */
+export function companionClientVersion(): string {
+  try {
+    const pkgPath = fileURLToPath(new URL('../../package.json', import.meta.url))
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string }
+    return pkg.version || '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+}
+
+/**
+ * Prefer AIOS_MCP_URL (e.g. http://127.0.0.1:8791/mcp) when set.
+ * Empty / whitespace → stdio. Does not validate reachability.
+ */
+export function resolveMcpTransportKind(
+  env: NodeJS.ProcessEnv = process.env,
+): McpTransportKind {
+  const url = (env.AIOS_MCP_URL || '').trim()
+  return url ? 'http' : 'stdio'
+}
+
+export function resolveMcpHttpUrl(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const url = (env.AIOS_MCP_URL || '').trim()
+  return url || undefined
+}
 
 function mcpEntry(aiosHome: string): string {
   return join(aiosHome, 'apps', 'mcp', 'src', 'index.ts')
@@ -253,17 +286,52 @@ export type ContractVersionResult = {
   raw?: unknown
 }
 
-/** Sessão MCP reutilizável (Resource-Aware: um processo por chat, fecha no fim). */
+/** Sessão MCP reutilizável (Resource-Aware: um processo/HTTP por chat, fecha no fim). */
 export class AiosMcpSession {
   private client: Client | null = null
   private aiosHome: string
+  private transportKind: McpTransportKind = 'stdio'
+  private httpUrl: string | undefined
 
   constructor(aiosHome?: string) {
     this.aiosHome = aiosHome || resolveAiosHome()
   }
 
+  /** Active transport after connect(); default stdio before connect. */
+  getTransportKind(): McpTransportKind {
+    return this.transportKind
+  }
+
+  getHttpUrl(): string | undefined {
+    return this.httpUrl
+  }
+
   async connect(): Promise<void> {
     if (this.client) return
+
+    const kind = resolveMcpTransportKind()
+    this.transportKind = kind
+    this.httpUrl = resolveMcpHttpUrl()
+
+    const client = new Client({
+      name: 'aios-companion',
+      version: companionClientVersion(),
+    })
+
+    if (kind === 'http') {
+      const raw = this.httpUrl!
+      let url: URL
+      try {
+        url = new URL(raw)
+      } catch {
+        throw new Error(`AIOS_MCP_URL inválida: ${raw}`)
+      }
+      const transport = new StreamableHTTPClientTransport(url)
+      await client.connect(transport)
+      this.client = client
+      return
+    }
+
     const entry = mcpEntry(this.aiosHome)
     if (!existsSync(entry)) {
       throw new Error(`MCP AIOS não encontrado: ${entry}`)
@@ -279,10 +347,6 @@ export class AiosMcpSession {
         AIOS_HOME: this.aiosHome,
         AIOS_MCP_QUIET: '1',
       } as Record<string, string>,
-    })
-    const client = new Client({
-      name: 'aios-companion',
-      version: '0.8.0',
     })
     await client.connect(transport)
     this.client = client
