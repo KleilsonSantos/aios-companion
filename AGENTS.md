@@ -1,23 +1,24 @@
 # AGENTS.md — AIOS Companion
 
-Contrato para agentes neste repositório.
+Contract for agents in this repository.
 
-## Missão
+## Mission
 
-Construir a **experiência Companion** (Conversation Manager → voz depois) que **consome** o AIOS via contratos estáveis.
+Build the **Companion experience** (Conversation Manager → voice later) that **consumes** AIOS via stable contracts.
 
-## Fontes de verdade
+## Sources of truth
 
-1. Código neste repo (`src/`)
-2. Fronteira: `docs/BOUNDARY.md`
-3. Control plane: repo **ai-operating-system** (`docs/FOUNDATION.md`, ADR-0014/0015) — **não** reimplementar engines
+1. Code in this repo (`src/`)
+2. Boundary: `docs/BOUNDARY.md`
+3. Control plane: **ai-operating-system** repo (`docs/FOUNDATION.md`, ADR-0014/0015) — **do not** reimplement engines
 
-## Regras
+## Rules
 
-1. **Não** copiar Policy / Memory / Knowledge / Prompt / Governance do AIOS.
-2. **Não** embutir o monorepo AIOS como pasta (ADR-0001).
-3. Preferir MCP `aios_*` e CLI `aios`; não importar `engines/*` do AIOS como API pública.
-4. Resource-Aware: on-demand; sem polling agressivo; voz/watchers só com justificação.
-5. Commits: `type: <gitmoji> …` · autoria `Kleilson Santos <kdsddesign1@gmail.com>` · sem Co-authored-by de IDE.
-6. Merges: `merge: 🔀 PR #<n> — <branch>` (ou helper equivalente).
-7. Fluxo: Issue → `feature/*` from `sandbox` → PR → `sandbox` → PR → `main`.
+1. **Do not** copy Policy / Memory / Knowledge / Prompt / Governance from AIOS.
+2. **Do not** embed the AIOS monorepo as a folder (ADR-0001).
+3. Prefer MCP `aios_*` and CLI `aios`; do not import AIOS `engines/*` as a public API.
+4. Resource-Aware: on-demand; no aggressive polling; voice/watchers only with justification.
+5. Commits: `type: <gitmoji> …` · author `Kleilson Santos <kdsddesign1@gmail.com>` · no IDE `Co-authored-by`.
+6. Merges: `merge: 🔀 PR #<n> — <branch>` (or equivalent helper).
+7. Flow: Issue → `feature/*` from `sandbox` → PR → `sandbox` → PR → `main`.
+8. Product docs are **US English** (mirrors AIOS ADR-0018); owner chat may stay PT.

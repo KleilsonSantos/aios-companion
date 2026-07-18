@@ -1,9 +1,13 @@
 # Changelog
 
-Formato inspirado em [Keep a Changelog](https://keepachangelog.com/).  
-Versão: SemVer.
+Format inspired by [Keep a Changelog](https://keepachangelog.com/).  
+Versioning: SemVer.
 
 ## [Unreleased]
+
+### Changed
+
+- Product docs migrated to US English (README, BOUNDARY, VISION, AGENTS; mirrors AIOS ADR-0018) (#94)
 
 ## [0.10.0] — 2026-07-18
 

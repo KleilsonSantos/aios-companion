@@ -1,25 +1,25 @@
 # Boundary — Companion ↔ AIOS
 
-## Produto
+## Product
 
-| Repo | Papel |
+| Repo | Role |
 | --- | --- |
-| `ai-operating-system` | Control plane (governança) |
-| `aios-companion` (este) | Experiência / Conversation Manager |
+| `ai-operating-system` | Control plane (governance) |
+| `aios-companion` (this) | Experience / Conversation Manager |
 
-## Contratos estáveis (consumir)
+## Stable contracts (consume)
 
 1. MCP `@aios/mcp` — tools `aios_*` (…); transport **stdio** by default, or **Streamable HTTP** when `AIOS_MCP_URL` is set (AIOS ADR-0022)
 2. CLI `aios` — `--operational-state`, `--governance-status`, …
-3. Pipeline — via MCP `aios_run_pipeline` / `companion run` (não importar `engines/*`)
-4. Doctor — `companion doctor` (handshake contrato + state/gov)
+3. Pipeline — via MCP `aios_run_pipeline` / `companion run` (do not import `engines/*`)
+4. Doctor — `companion doctor` (contract handshake + state/gov)
 
-## Anti-padrões
+## Anti-patterns
 
-- Segundo Policy Engine aqui
-- Polling de CPU/RAM “para parecer vivo”
-- Embutir AIOS como submodule/pasta de código interno
-- Voz no MVP sem CM de chat estável
+- A second Policy Engine here
+- Polling CPU/RAM “to look alive”
+- Embedding AIOS as a submodule / internal code folder
+- Voice in MVP without a stable chat Conversation Manager
 
 ## Surface UI (v0.6+)
 
