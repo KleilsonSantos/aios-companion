@@ -1,41 +1,41 @@
-# Visão UX cinemática — Companion (parked)
+# Cinematic UX vision — Companion (parked)
 
-> **Estado:** parked · **Issue:** [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)  
-> **Não implementar agora.** Fronteira: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md).
+> **Status:** parked · **Issue:** [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)  
+> **Do not implement now.** Boundary: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md).
 
-## Em uma frase
+## In one sentence
 
-O Companion pode um dia ser a **sala de comando** (Jarvis / Minority Report); o AIOS continua o **cérebro que governa**.
+The Companion may one day be the **command room** (Jarvis / Minority Report); AIOS remains the **brain that governs**.
 
-## Referências de intenção
+## Intent references
 
-| Referência | O que extrair (não copiar literal) |
+| Reference | What to extract (not copy literally) |
 | --- | --- |
-| Jarvis (Iron Man) | Diálogo + estado do sistema visível; assistente que **opera** a experiência |
-| Minority Report | Superfícies / painéis que se abrem com uma procura ou decisão; gesto → informação |
+| Jarvis (Iron Man) | Dialogue + visible system state; assistant that **operates** the experience |
+| Minority Report | Surfaces / panels that open with a search or decision; gesture → information |
 
-## Ideias a preservar
+## Ideas to preserve
 
-1. **Ologramas / superfícies futuristas** — atmosfera, não chrome genérico de dashboard.
-2. **Processos em execução visíveis** — fluxos / “algoritmos” que mudam de forma (**polimórficos**) de modo **coerente** com o que está a correr de verdade.
-3. **Mapas mentais interativos em movimento** — relações (intent → agents → verdict, memory, gov) navegáveis.
-4. **Janelas / painéis contextuais** — abrem porque houve uma execução (`run`), um audit, uma procura — não decoração aleatória.
-5. **Gancho ao control plane** — cada efeito visual amarra a um evento/contrato AIOS (`pipeline`, `gov`, `memory`, `doctor`…). Animação sem sinal = anti-padrão.
+1. **Holograms / futuristic surfaces** — atmosphere, not generic dashboard chrome.
+2. **Visible running processes** — flows / “algorithms” that change shape (**polymorphic**) in a way **coherent** with what is actually running.
+3. **Interactive moving mind maps** — navigable relations (intent → agents → verdict, memory, gov).
+4. **Contextual windows / panels** — open because of a run, an audit, a search — not random decoration.
+5. **Hook to the control plane** — every visual effect ties to an AIOS event/contract (`pipeline`, `gov`, `memory`, `doctor`…). Animation without a signal = anti-pattern.
 
-## O que isto NÃO é (agora)
+## What this is NOT (now)
 
-- Substituir o console de governança do AIOS
-- WebGL/Three.js / gestos / voz / watchers agressivos nesta fase
-- Duplicar Policy / Memory / Knowledge no Companion
-- “Demo cinema” desligada do MCP
+- Replacing the AIOS governance console
+- WebGL/Three.js / gestures / voice / aggressive watchers in this phase
+- Duplicating Policy / Memory / Knowledge in Companion
+- A “cinema demo” disconnected from MCP
 
-## Quando despark (critérios mínimos)
+## When to unpark (minimum criteria)
 
-1. Contratos Companion↔AIOS estáveis (já em curso).
-2. Spike: **um** painel visual ligado a um evento real (ex. `companion run` → grafo de agents).
-3. Impacto Resource-Aware declarado (CPU/GPU/bateria no macOS).
-4. Issue de spike própria (não esta vision sozinha).
+1. Stable Companion↔AIOS contracts (already in progress).
+2. Spike: **one** visual panel tied to a real event (e.g. `companion run` → agent graph).
+3. Declared Resource-Aware impact (CPU/GPU/battery on macOS).
+4. Its own spike issue (not this vision alone).
 
-## Relação com o MVP atual
+## Relation to the current MVP
 
-Hoje o Companion é CLI + chat + caps + doctor. Esta visão é a **camada de presença** futura — documentada para não se perder entre chats.
+Today Companion is CLI + chat + caps + doctor. This vision is the future **presence layer** — documented so it is not lost between chats.
