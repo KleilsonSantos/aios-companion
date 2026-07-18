@@ -5,6 +5,21 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-07-18
+
+**MCP HTTP client** — opt-in Streamable HTTP via `AIOS_MCP_URL`; stdio remains default. Cinematic UX (#37) stays parked. Requires AIOS **v0.25.0+** for the HTTP path.
+
+### Added
+
+- `AIOS_MCP_URL` (e.g. `http://127.0.0.1:8791/mcp`) → `StreamableHTTPClientTransport` (#91)
+- Doctor reports `http OK · <url>` vs `stdio OK`; skips local MCP entry check when URL is set
+- Client advertised version follows `package.json`
+
+### Notes
+
+- Does not auto-start AIOS HTTP MCP — run `pnpm --filter @aios/mcp dev:http` first
+- Fail loudly if URL is set but the server is down (no silent stdio fallback)
+
 ## [0.9.0] — 2026-07-18
 
 **Surface stream + workspace** — progressive chat reveal and on-demand workspace chip. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.

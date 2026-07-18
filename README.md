@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Version:** `0.9.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.10.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
@@ -25,12 +25,14 @@ Visão UX futura (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMA
 
 ## Pré-requisitos
 
-1. Checkout do AIOS (`ai-operating-system`) com `v0.23.0+`
+1. Checkout do AIOS (`ai-operating-system`) com `v0.25.0+` (HTTP MCP) or `v0.23.0+` (stdio)
 2. Node ≥ 22.13
 3. `AIOS_HOME` apontando para o monorepo AIOS
 
 ```bash
 export AIOS_HOME=/path/to/ai-operating-system
+# optional — reuse a running AIOS Streamable HTTP MCP (ADR-0022):
+# export AIOS_MCP_URL=http://127.0.0.1:8791/mcp
 ```
 
 ## Surface UI
