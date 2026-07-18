@@ -1,10 +1,15 @@
 /**
- * Conversation Manager — turns de chat (sem voz no MVP).
- * Injeta resumo do Operational State; replies preferem provider AIOS (MCP).
- * Intents de análise → núcleo via aios_run_pipeline (não improvisar no chat).
+ * Conversation Manager — chat turns (no voice in MVP).
+ * Injects Operational State summary; replies prefer AIOS provider (MCP).
+ * Analysis intents → core via aios_run_pipeline (do not improvise in chat).
  */
 import type { OperationalStateLite } from '../aios/cli-bridge.ts'
 import type { AiosMcpSession } from '../aios/mcp-client.ts'
+import {
+  chatCopy,
+  resolveLocale,
+  type CompanionLocale,
+} from './locale.ts'
 
 export type ChatTurn = {
   role: 'system' | 'user' | 'assistant'
@@ -17,34 +22,35 @@ export type ConversationSession = {
   id: string
   createdAt: string
   turns: ChatTurn[]
+  locale: CompanionLocale
 }
 
 function now(): string {
   return new Date().toISOString()
 }
 
-export function createSession(state?: OperationalStateLite): ConversationSession {
+export function createSession(
+  state?: OperationalStateLite,
+  options: { locale?: CompanionLocale } = {},
+): ConversationSession {
+  const locale = options.locale ?? resolveLocale()
+  const copy = chatCopy(locale)
   const summary =
     state?.summary ||
-    'AIOS control plane disponível — peça status ou descreva a tarefa.'
+    (locale === 'pt'
+      ? 'AIOS control plane disponível — peça status ou descreva a tarefa.'
+      : 'AIOS control plane available — ask for status or describe the task.')
   const branch = state?.git?.branch ? ` (git: ${state.git.branch})` : ''
   const system: ChatTurn = {
     role: 'system',
-    content: [
-      'És o Companion do AIOS (experiência). O AIOS governa; tu conversas.',
-      'Não inventes policies — sugere consultar o control plane.',
-      `Estado operacional: ${summary}${branch}`,
-      'Pedidos de análise/inspeção do projeto → pipeline AIOS (não improvisar).',
-      'Voz e controlo de IDE/Docker estão fora de escopo neste MVP.',
-      'Capabilities: `companion caps` (git / github via CLI on-demand).',
-      'Respostas curtas e práticas em português.',
-    ].join('\n'),
+    content: copy.system(summary, branch),
     at: now(),
   }
   return {
     id: `c_${Date.now().toString(36)}`,
     createdAt: now(),
     turns: [system],
+    locale,
   }
 }
 
@@ -52,9 +58,13 @@ function systemPrompt(session: ConversationSession): string {
   return session.turns.find((t) => t.role === 'system')?.content || ''
 }
 
+function copyFor(session: ConversationSession) {
+  return chatCopy(session.locale)
+}
+
 /**
- * Detecta intent que deve ir ao núcleo (pipeline), não ao chat LLM.
- * Heurística leve — Resource-Aware, sem NLU externo.
+ * Detect intent that must go to the core (pipeline), not the chat LLM.
+ * Light heuristic — Resource-Aware, no external NLU.
  */
 export function isPipelineIntent(text: string): boolean {
   const t = text.trim().toLowerCase()
@@ -75,40 +85,32 @@ export function isPipelineIntent(text: string): boolean {
   return false
 }
 
-/** Resposta determinística (offline / provider down) — Resource-Aware. */
+/** Deterministic reply (offline / provider down) — Resource-Aware. */
 export function respondLocal(
   session: ConversationSession,
   userText: string,
 ): ChatTurn {
-  const content = userText.trim() || '(vazio)'
+  const copy = copyFor(session)
+  const content = userText.trim() || copy.empty
   session.turns.push({ role: 'user', content, at: now() })
 
   const lower = content.toLowerCase()
   let reply: string
   if (isPipelineIntent(content)) {
-    reply =
-      'Isto pede o núcleo AIOS. Corre `companion run "…"`, `/run …` no chat, ou liga MCP (sem `--local`).'
+    reply = copy.pipelineHint
   } else if (lower.includes('status') || lower.includes('estado')) {
     reply =
       systemPrompt(session)
         .split('\n')
-        .find((l) => l.startsWith('Estado operacional:')) ||
-      'Sem snapshot — corre `companion status`.'
+        .find((l) => l.startsWith(copy.operationalPrefix)) || copy.noSnapshot
   } else if (lower.includes('ajuda') || lower === 'help') {
-    reply =
-      'Comandos: "status"; análise → pipeline; `companion caps|gov|audit|memory|decide|run|run-all|brief|workspaces|knowledge|providers|policies`. Voz ainda não.'
+    reply = copy.help
   } else if (lower.includes('github') || /\bprs?\b/.test(lower)) {
-    reply =
-      'GitHub: corre `companion caps github` (usa `gh` se autenticado). Não duplico APIs no Companion.'
+    reply = copy.github
   } else if (/\bgit\b/.test(lower) || lower.includes('branch')) {
-    reply =
-      'Git: corre `companion caps git` (CLI ou snapshot AIOS). Sem watchers neste MVP.'
+    reply = copy.git
   } else {
-    reply = [
-      `Registei: “${content.slice(0, 200)}”.`,
-      'Provider AIOS indisponível — resposta local.',
-      'Valida no control plane: `companion status` / console Try it.',
-    ].join(' ')
+    reply = copy.localFallback(content.slice(0, 200))
   }
 
   const assistant: ChatTurn = {
@@ -125,7 +127,7 @@ export function respondLocal(
 export const respond = respondLocal
 
 /**
- * Núcleo AIOS — intent de análise via aios_run_pipeline.
+ * AIOS core — analysis intent via aios_run_pipeline.
  */
 export async function respondWithPipeline(
   session: ConversationSession,
@@ -133,7 +135,8 @@ export async function respondWithPipeline(
   mcp: AiosMcpSession,
   options: { repoPath?: string; workspaceId?: string } = {},
 ): Promise<ChatTurn> {
-  const content = userText.trim() || '(vazio)'
+  const copy = copyFor(session)
+  const content = userText.trim() || copy.empty
   session.turns.push({ role: 'user', content, at: now() })
 
   try {
@@ -156,7 +159,7 @@ export async function respondWithPipeline(
     session.turns.push({ role: 'user', content, at: now() })
     const assistant: ChatTurn = {
       role: 'assistant',
-      content: `Pipeline falhou: ${msg}. Tenta \`companion run\` ou \`/run\`.`,
+      content: copy.pipelineFailed(msg),
       at: now(),
       via: 'local',
     }
@@ -166,14 +169,15 @@ export async function respondWithPipeline(
 }
 
 /**
- * Reply via AIOS `aios_provider_chat` (MCP). Fallback local se falhar.
+ * Reply via AIOS `aios_provider_chat` (MCP). Local fallback on failure.
  */
 export async function respondWithProvider(
   session: ConversationSession,
   userText: string,
   mcp: AiosMcpSession,
 ): Promise<ChatTurn> {
-  const content = userText.trim() || '(vazio)'
+  const copy = copyFor(session)
+  const content = userText.trim() || copy.empty
   session.turns.push({ role: 'user', content, at: now() })
 
   try {
@@ -183,7 +187,7 @@ export async function respondWithProvider(
     })
     const assistant: ChatTurn = {
       role: 'assistant',
-      content: out.content || '(vazio)',
+      content: out.content || copy.empty,
       at: now(),
       via: 'provider',
     }
