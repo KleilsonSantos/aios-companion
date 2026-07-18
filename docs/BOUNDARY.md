@@ -23,9 +23,10 @@
 
 ## Surface UI (v0.6+)
 
-- Companion may expose a **local web surface** (`pnpm surface`) that consumes the same MCP/CLI contracts.
+- Companion may expose a **local web surface** (`companion surface` / `pnpm surface`) that consumes the same MCP/CLI contracts.
+- It may show consumption + memory **read/write via MCP** — never a second Memory Engine.
 - It must not become a second control plane or a clone of the AIOS console.
-- Refresh is **on-demand** (Resource-Aware).
+- Refresh / recall are **on-demand** (Resource-Aware). Destructive clear stays CLI (`--yes`).
 
 ## Evolution
 

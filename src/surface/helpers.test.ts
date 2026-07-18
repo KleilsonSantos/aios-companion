@@ -3,7 +3,10 @@ import { describe, it } from 'node:test'
 import { createSession } from '../conversation/manager.ts'
 import {
   buildSurfaceSnapshot,
+  formatConsumptionChip,
   parseChatBody,
+  parseMemoryBody,
+  parseMemoryChatCommand,
   publicTurns,
 } from './helpers.ts'
 
@@ -27,7 +30,7 @@ describe('surface helpers', () => {
     assert.equal(turns[1]?.via, 'local')
   })
 
-  it('buildSurfaceSnapshot maps attention + ops', () => {
+  it('buildSurfaceSnapshot maps attention + ops + memory + consumption', () => {
     const session = createSession({ summary: '1 workspace' })
     const snap = buildSurfaceSnapshot({
       session,
@@ -42,13 +45,43 @@ describe('surface helpers', () => {
         attention: [{ id: 'a1', severity: 'warn', title: 'Drift' }],
         providerOk: true,
         providers: ['ollama'],
+        providerChat: {
+          count: 3,
+          errorCount: 0,
+          promptTokens: 10,
+          completionTokens: 20,
+          totalTokens: 30,
+        },
+        raw: {},
+      },
+      memory: {
+        workspaceId: 'aios',
+        count: 1,
+        summary: 'memory aios: 1 entrada(s)',
+        entries: [{ content: 'note one', tags: ['t'] }],
         raw: {},
       },
     })
     assert.equal(snap.service, 'companion-surface')
     assert.equal(snap.operational.branch, 'sandbox')
     assert.equal(snap.governance.attention.length, 1)
+    assert.equal(snap.governance.consumption?.label.includes('3 chat'), true)
+    assert.equal(snap.memory.entries[0]?.content, 'note one')
     assert.equal(snap.ok, true)
+  })
+
+  it('formatConsumptionChip handles empty and errors', () => {
+    assert.equal(formatConsumptionChip(null).label, 'no chat yet')
+    assert.equal(
+      formatConsumptionChip({
+        count: 2,
+        errorCount: 1,
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2,
+      }).tone,
+      'bad',
+    )
   })
 
   it('parseChatBody validates message', () => {
@@ -58,5 +91,46 @@ describe('surface helpers', () => {
     })
     assert.equal('error' in parseChatBody({}), true)
     assert.equal('error' in parseChatBody(null), true)
+  })
+
+  it('parseMemoryChatCommand covers recall/remember/clear', () => {
+    assert.deepEqual(parseMemoryChatCommand('/memory'), {
+      kind: 'recall',
+      workspaceId: process.env.AIOS_WORKSPACE || 'aios',
+    })
+    assert.deepEqual(parseMemoryChatCommand('/memory companion'), {
+      kind: 'recall',
+      workspaceId: 'companion',
+    })
+    assert.deepEqual(parseMemoryChatCommand('/memory remember ship it'), {
+      kind: 'remember',
+      workspaceId: process.env.AIOS_WORKSPACE || 'aios',
+      content: 'ship it',
+    })
+    assert.deepEqual(parseMemoryChatCommand('/memory remember @companion note'), {
+      kind: 'remember',
+      workspaceId: 'companion',
+      content: 'note',
+    })
+    assert.deepEqual(parseMemoryChatCommand('/memory clear --yes'), {
+      kind: 'clear-blocked',
+    })
+    assert.equal(parseMemoryChatCommand('hello'), null)
+  })
+
+  it('parseMemoryBody validates action', () => {
+    assert.deepEqual(parseMemoryBody({ action: 'recall' }), {
+      action: 'recall',
+      workspaceId: process.env.AIOS_WORKSPACE || 'aios',
+    })
+    assert.equal('error' in parseMemoryBody({ action: 'remember' }), true)
+    assert.deepEqual(
+      parseMemoryBody({
+        action: 'remember',
+        workspaceId: 'aios',
+        content: ' hi ',
+      }),
+      { action: 'remember', workspaceId: 'aios', content: 'hi' },
+    )
   })
 })

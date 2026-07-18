@@ -1,6 +1,10 @@
 /**
  * aios-companion CLI — experiência sobre o control plane AIOS (#90).
  */
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import {
@@ -70,6 +74,7 @@ Uso:
   companion providers [health] [--json] [--provider id] [--url base]
   companion providers models [--json] [--provider id] [--url base]
   companion policies [--json] [--repo path] [--workspace id] [--path file]
+  companion surface [--api-only]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -89,11 +94,58 @@ Uso:
   Knowledge: aios_build_knowledge (mapa heurístico do repo; alias: kg).
   Providers: aios_provider_health / aios_provider_models (alias: provider).
   Policies: aios_load_policies (regulamento explícito; alias: policy).
+  Surface: local web UI + API (consumption · memory · chat); alias: ui.
 
 Env:
-  AIOS_HOME        path do monorepo ai-operating-system
-  AIOS_WORKSPACE   default workspace id (memory/run/brief)
+  AIOS_HOME                 path do monorepo ai-operating-system
+  AIOS_WORKSPACE            default workspace id (memory/run/brief)
+  COMPANION_SURFACE_PORT    API port (default 8790)
+  COMPANION_UI_PORT         Vite UI port (default 5174)
 `)
+}
+
+function packageRoot(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), '..')
+}
+
+/**
+ * Launch surface API (+ UI unless --api-only). Reuses pnpm scripts (#82).
+ */
+async function cmdSurface(argv: string[]): Promise<void> {
+  const apiOnly = argv.includes('--api-only')
+  const root = packageRoot()
+  const pkg = join(root, 'package.json')
+  if (!existsSync(pkg)) {
+    console.error(`companion surface> package.json not found at ${root}`)
+    process.exitCode = 1
+    return
+  }
+  const script = apiOnly ? 'surface:api' : 'surface'
+  const uiPort = process.env.COMPANION_UI_PORT || '5174'
+  const apiPort = process.env.COMPANION_SURFACE_PORT || '8790'
+  console.error(
+    apiOnly
+      ? `companion surface> API http://127.0.0.1:${apiPort}`
+      : `companion surface> UI http://127.0.0.1:${uiPort} · API :${apiPort}`,
+  )
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('pnpm', ['run', script], {
+      cwd: root,
+      stdio: 'inherit',
+      env: process.env,
+      shell: process.platform === 'win32',
+    })
+    child.on('error', reject)
+    child.on('exit', (code, signal) => {
+      if (signal) {
+        process.exitCode = 1
+        resolve()
+        return
+      }
+      process.exitCode = code ?? 0
+      resolve()
+    })
+  })
 }
 
 type Transport = 'auto' | 'mcp' | 'cli'
@@ -1315,6 +1367,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'policies' || cmd === 'policy') {
     await cmdPolicies(argv.slice(1))
+    return
+  }
+  if (cmd === 'surface' || cmd === 'ui') {
+    await cmdSurface(argv.slice(1))
     return
   }
   console.error(`Comando desconhecido: ${cmd}`)

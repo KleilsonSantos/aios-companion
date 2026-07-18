@@ -5,6 +5,22 @@ Versão: SemVer.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-07-18
+
+**Surface depth** — consumption + memory on the web surface; CLI launcher. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.
+
+### Added
+
+- Consumption chip from governance `providerChat` metrics on the surface (#82)
+- Memory panel (on-demand recall) + `/memory` / `/memory remember …` in surface chat
+- `POST /api/memory` (recall|remember) · `companion surface` / `companion ui` CLI
+- Snapshot includes `governance.consumption` + `memory`
+
+### Notes
+
+- Clear stays CLI-only (`companion memory clear --yes`) — destructive
+- Resource-Aware: still no polling loop
+
 ## [0.6.0] — 2026-07-17
 
 Minimal **surface UI** — one composition (conversation + state + attention) over MCP. Cinematic UX (#37) stays parked. Requires AIOS **v0.23.0+**.

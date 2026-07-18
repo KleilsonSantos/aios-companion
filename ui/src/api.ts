@@ -12,6 +12,13 @@ export type SurfaceTurn = {
   via?: 'local' | 'provider' | 'pipeline'
 }
 
+export type SurfaceMemoryEntry = {
+  id?: string
+  content?: string
+  tags?: string[]
+  at?: string
+}
+
 export type SurfaceSnapshot = {
   ok: boolean
   service: 'companion-surface'
@@ -32,6 +39,12 @@ export type SurfaceSnapshot = {
       errorCount: number
       totalTokens: number
     }
+    consumption?: { tone: 'ok' | 'bad' | ''; label: string }
+  }
+  memory: {
+    workspaceId: string
+    summary: string
+    entries: SurfaceMemoryEntry[]
   }
   turns: SurfaceTurn[]
   error?: string
@@ -58,7 +71,7 @@ export async function refreshSurface(): Promise<SurfaceSnapshot> {
 export async function sendChat(
   message: string,
   localOnly = false,
-): Promise<{ turns: SurfaceTurn[] }> {
+): Promise<SurfaceSnapshot & { turns: SurfaceTurn[] }> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -68,5 +81,22 @@ export async function sendChat(
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     throw new Error(body.error || `HTTP ${res.status}`)
   }
-  return (await res.json()) as { turns: SurfaceTurn[] }
+  return (await res.json()) as SurfaceSnapshot & { turns: SurfaceTurn[] }
+}
+
+export async function postMemory(options: {
+  action: 'recall' | 'remember'
+  workspaceId?: string
+  content?: string
+}): Promise<SurfaceSnapshot> {
+  const res = await fetch('/api/memory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `HTTP ${res.status}`)
+  }
+  return (await res.json()) as SurfaceSnapshot
 }
