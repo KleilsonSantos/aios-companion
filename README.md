@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 
-**Versão:** `0.5.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.6.0` — [CHANGELOG](./CHANGELOG.md)
 
 ## Em uma frase
 
@@ -33,7 +33,20 @@ Visão UX futura (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMA
 export AIOS_HOME=/path/to/ai-operating-system
 ```
 
-## Uso (MVP)
+## Surface UI (minimal)
+
+One composition — **Companion** brand, conversation, light operational line, attention. Consumes AIOS via MCP (no engine reimplementation). Cinematic UX remains parked ([#37](https://github.com/KleilsonSantos/aios-companion/issues/37)).
+
+```bash
+export AIOS_HOME=/path/to/ai-operating-system
+pnpm install
+pnpm surface                   # API :8790 + UI :5174 (proxied /api)
+```
+
+- Refresh is **on-demand** (Resource-Aware; no polling loop)
+- Chat routes analysis intents to `aios_run_pipeline`; otherwise `aios_provider_chat` (local fallback)
+
+## CLI usage (MVP)
 
 ```bash
 pnpm install
