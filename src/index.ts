@@ -47,6 +47,7 @@ import {
   snapshotCapability,
   type CapabilityId,
 } from './capabilities/index.ts'
+import { waitForSurfaceHealth } from './surface/health.ts'
 
 function usage(): void {
   console.log(`aios-companion — Conversation Manager (ADR-0014)
@@ -74,7 +75,7 @@ Uso:
   companion providers [health] [--json] [--provider id] [--url base]
   companion providers models [--json] [--provider id] [--url base]
   companion policies [--json] [--repo path] [--workspace id] [--path file]
-  companion surface [--api-only]
+  companion surface [--api-only] [--no-open]
 
   --mcp     forçar MCP stdio
   --cli     forçar CLI AIOS (só status / estado inicial)
@@ -94,13 +95,15 @@ Uso:
   Knowledge: aios_build_knowledge (mapa heurístico do repo; alias: kg).
   Providers: aios_provider_health / aios_provider_models (alias: provider).
   Policies: aios_load_policies (regulamento explícito; alias: policy).
-  Surface: local web UI + API (consumption · memory · chat); alias: ui.
+  Surface: local web UI + API (consumption · memory · chat · session persist); alias: ui.
 
 Env:
   AIOS_HOME                 path do monorepo ai-operating-system
   AIOS_WORKSPACE            default workspace id (memory/run/brief)
   COMPANION_SURFACE_PORT    API port (default 8790)
   COMPANION_UI_PORT         Vite UI port (default 5174)
+  COMPANION_SESSION_PATH    override surface session JSON path
+  COMPANION_SURFACE_URL     doctor/health base URL (default http://127.0.0.1:$PORT)
 `)
 }
 
@@ -109,10 +112,12 @@ function packageRoot(): string {
 }
 
 /**
- * Launch surface API (+ UI unless --api-only). Reuses pnpm scripts (#82).
+ * Launch surface API (+ UI unless --api-only). Reuses pnpm scripts (#82 / #85).
+ * Opens the default browser once when UI starts (opt-out: --no-open).
  */
 async function cmdSurface(argv: string[]): Promise<void> {
   const apiOnly = argv.includes('--api-only')
+  const noOpen = argv.includes('--no-open')
   const root = packageRoot()
   const pkg = join(root, 'package.json')
   if (!existsSync(pkg)) {
@@ -123,18 +128,36 @@ async function cmdSurface(argv: string[]): Promise<void> {
   const script = apiOnly ? 'surface:api' : 'surface'
   const uiPort = process.env.COMPANION_UI_PORT || '5174'
   const apiPort = process.env.COMPANION_SURFACE_PORT || '8790'
+  const uiUrl = `http://127.0.0.1:${uiPort}`
   console.error(
     apiOnly
       ? `companion surface> API http://127.0.0.1:${apiPort}`
-      : `companion surface> UI http://127.0.0.1:${uiPort} · API :${apiPort}`,
+      : `companion surface> UI ${uiUrl} · API :${apiPort}`,
   )
+
+  const child = spawn('pnpm', ['run', script], {
+    cwd: root,
+    stdio: 'inherit',
+    env: process.env,
+    shell: process.platform === 'win32',
+  })
+
+  if (!apiOnly && !noOpen) {
+    void (async () => {
+      const ready = await waitForSurfaceHealth({
+        baseUrl: `http://127.0.0.1:${apiPort}`,
+      })
+      if (!ready) {
+        console.error(
+          'companion surface> API not ready — open the UI manually when Vite starts',
+        )
+        return
+      }
+      openBrowser(uiUrl)
+    })()
+  }
+
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('pnpm', ['run', script], {
-      cwd: root,
-      stdio: 'inherit',
-      env: process.env,
-      shell: process.platform === 'win32',
-    })
     child.on('error', reject)
     child.on('exit', (code, signal) => {
       if (signal) {
@@ -146,6 +169,28 @@ async function cmdSurface(argv: string[]): Promise<void> {
       resolve()
     })
   })
+}
+
+function openBrowser(url: string): void {
+  const platform = process.platform
+  let cmd: string
+  let args: string[]
+  if (platform === 'darwin') {
+    cmd = 'open'
+    args = [url]
+  } else if (platform === 'win32') {
+    cmd = 'cmd'
+    args = ['/c', 'start', '', url]
+  } else {
+    cmd = 'xdg-open'
+    args = [url]
+  }
+  const child = spawn(cmd, args, {
+    stdio: 'ignore',
+    detached: true,
+  })
+  child.unref()
+  console.error(`companion surface> opened ${url}`)
 }
 
 type Transport = 'auto' | 'mcp' | 'cli'

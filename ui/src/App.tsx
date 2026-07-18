@@ -3,6 +3,7 @@ import {
   fetchSurface,
   postMemory,
   refreshSurface,
+  resetSession,
   sendChat,
   type SurfaceSnapshot,
   type SurfaceTurn,
@@ -47,6 +48,16 @@ export function App() {
     setError(null)
     try {
       const data = await refreshSurface()
+      startTransition(() => applySnap(data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function onNewChat() {
+    setError(null)
+    try {
+      const data = await resetSession()
       startTransition(() => applySnap(data))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -131,6 +142,14 @@ export function App() {
             disabled={pending}
           >
             Refresh
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => void onNewChat()}
+            disabled={pending}
+          >
+            New chat
           </button>
         </div>
 
