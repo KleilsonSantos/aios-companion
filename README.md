@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen)](package.json)
 
-**Version:** `0.11.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.11.1` — [CHANGELOG](./CHANGELOG.md)
 
 Product documentation is **US English** (mirrors AIOS [ADR-0018](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0018-documentation-language.md)).
 
@@ -59,6 +59,8 @@ export AIOS_HOME=/path/to/ai-operating-system
 pnpm install
 pnpm run typecheck
 pnpm test
+# optional — live bridge (needs AIOS_HOME ≥0.25.0):
+# pnpm smoke:mcp-http
 ```
 
 ## Surface UI
