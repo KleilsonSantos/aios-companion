@@ -1,5 +1,5 @@
 /**
- * Companion surface API — thin HTTP over MCP + Conversation Manager (#79).
+ * Companion surface API — thin HTTP over MCP + Conversation Manager (#79 / #82).
  * Port: COMPANION_SURFACE_PORT or 8790 (avoids AIOS console 8787).
  * Resource-Aware: one MCP session for process lifetime; no polling here.
  */
@@ -13,9 +13,19 @@ import {
   respondWithPipeline,
   respondWithProvider,
   type ConversationSession,
+  type ChatTurn,
 } from '../conversation/manager.ts'
-import { buildSurfaceSnapshot, parseChatBody } from './helpers.ts'
-import type { GovernanceStatusResult } from '../aios/mcp-client.ts'
+import {
+  buildSurfaceSnapshot,
+  defaultWorkspaceId,
+  parseChatBody,
+  parseMemoryBody,
+  parseMemoryChatCommand,
+} from './helpers.ts'
+import type {
+  GovernanceStatusResult,
+  MemoryRecallResult,
+} from '../aios/mcp-client.ts'
 
 const port = Number(process.env.COMPANION_SURFACE_PORT || 8790)
 
@@ -23,6 +33,12 @@ let mcp: AiosMcpSession | null = null
 let conversation: ConversationSession | null = null
 let lastOperational: OperationalStateLite | null = null
 let lastGovernance: GovernanceStatusResult | null = null
+let lastMemory: MemoryRecallResult | null = null
+let memoryWorkspaceId = defaultWorkspaceId()
+
+function now(): string {
+  return new Date().toISOString()
+}
 
 function sendJson(
   res: import('node:http').ServerResponse,
@@ -76,10 +92,87 @@ async function refreshControlPlane(session: AiosMcpSession): Promise<string | un
   try {
     lastOperational = await session.operationalState()
     lastGovernance = await session.governanceStatus()
+    lastMemory = await session.memoryRecall({
+      workspaceId: memoryWorkspaceId,
+      limit: 5,
+    })
     return undefined
   } catch (err) {
     return err instanceof Error ? err.message : String(err)
   }
+}
+
+function snapshot(session: ConversationSession, error?: string) {
+  return buildSurfaceSnapshot({
+    session,
+    operational: lastOperational,
+    governance: lastGovernance,
+    memory: lastMemory,
+    workspaceId: memoryWorkspaceId,
+    error,
+  })
+}
+
+function pushLocalAssistant(
+  conv: ConversationSession,
+  userText: string,
+  reply: string,
+): ChatTurn {
+  conv.turns.push({ role: 'user', content: userText, at: now() })
+  const assistant: ChatTurn = {
+    role: 'assistant',
+    content: reply,
+    at: now(),
+    via: 'local',
+  }
+  conv.turns.push(assistant)
+  return assistant
+}
+
+async function handleMemoryChat(
+  conv: ConversationSession,
+  session: AiosMcpSession,
+  message: string,
+): Promise<ChatTurn | null> {
+  const cmd = parseMemoryChatCommand(message)
+  if (!cmd) return null
+
+  if (cmd.kind === 'clear-blocked') {
+    return pushLocalAssistant(
+      conv,
+      message,
+      'Memory clear is destructive — use `companion memory clear [workspace] --yes` from the CLI.',
+    )
+  }
+
+  if (cmd.kind === 'recall') {
+    memoryWorkspaceId = cmd.workspaceId
+    const out = await session.memoryRecall({
+      workspaceId: cmd.workspaceId,
+      limit: 5,
+    })
+    lastMemory = out
+    const lines = out.entries.slice(0, 5).map((e) => {
+      const tags = e.tags?.length ? ` [${e.tags.join(', ')}]` : ''
+      return `- ${(e.content || '').slice(0, 160)}${tags}`
+    })
+    const body =
+      lines.length === 0
+        ? out.summary
+        : `${out.summary}\n${lines.join('\n')}`
+    return pushLocalAssistant(conv, message, body)
+  }
+
+  const remembered = await session.memoryRemember({
+    workspaceId: cmd.workspaceId,
+    content: cmd.content,
+  })
+  memoryWorkspaceId = cmd.workspaceId
+  lastMemory = await session.memoryRecall({
+    workspaceId: cmd.workspaceId,
+    limit: 5,
+  })
+  return pushLocalAssistant(conv, message, remembered.summary)
 }
 
 const server = createServer(async (req, res) => {
@@ -105,16 +198,7 @@ const server = createServer(async (req, res) => {
       const session = await ensureMcp()
       const conv = await ensureConversation(session)
       const error = await refreshControlPlane(session)
-      sendJson(
-        res,
-        200,
-        buildSurfaceSnapshot({
-          session: conv,
-          operational: lastOperational,
-          governance: lastGovernance,
-          error,
-        }),
-      )
+      sendJson(res, 200, snapshot(conv, error))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       sendJson(res, 500, { error: message, service: 'companion-surface' })
@@ -132,13 +216,16 @@ const server = createServer(async (req, res) => {
       const session = await ensureMcp()
       const conv = await ensureConversation(session)
 
-      let turn
-      if (parsed.localOnly) {
-        turn = respondLocal(conv, parsed.message)
-      } else if (isPipelineIntent(parsed.message)) {
-        turn = await respondWithPipeline(conv, parsed.message, session)
-      } else {
-        turn = await respondWithProvider(conv, parsed.message, session)
+      const memTurn = await handleMemoryChat(conv, session, parsed.message)
+      let turn = memTurn
+      if (!turn) {
+        if (parsed.localOnly) {
+          turn = respondLocal(conv, parsed.message)
+        } else if (isPipelineIntent(parsed.message)) {
+          turn = await respondWithPipeline(conv, parsed.message, session)
+        } else {
+          turn = await respondWithProvider(conv, parsed.message, session)
+        }
       }
 
       sendJson(res, 200, {
@@ -148,12 +235,36 @@ const server = createServer(async (req, res) => {
           at: turn.at,
           via: turn.via,
         },
-        turns: buildSurfaceSnapshot({
-          session: conv,
-          operational: lastOperational,
-          governance: lastGovernance,
-        }).turns,
+        ...snapshot(conv),
       })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/memory') {
+    try {
+      const parsed = parseMemoryBody(await readJsonBody(req))
+      if ('error' in parsed) {
+        sendJson(res, 400, { error: parsed.error })
+        return
+      }
+      const session = await ensureMcp()
+      const conv = await ensureConversation(session)
+      memoryWorkspaceId = parsed.workspaceId
+      if (parsed.action === 'remember' && parsed.content) {
+        await session.memoryRemember({
+          workspaceId: parsed.workspaceId,
+          content: parsed.content,
+        })
+      }
+      lastMemory = await session.memoryRecall({
+        workspaceId: parsed.workspaceId,
+        limit: 5,
+      })
+      sendJson(res, 200, snapshot(conv))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       sendJson(res, 500, { error: message })
@@ -166,16 +277,7 @@ const server = createServer(async (req, res) => {
       const session = await ensureMcp()
       const conv = await ensureConversation(session)
       const error = await refreshControlPlane(session)
-      sendJson(
-        res,
-        200,
-        buildSurfaceSnapshot({
-          session: conv,
-          operational: lastOperational,
-          governance: lastGovernance,
-          error,
-        }),
-      )
+      sendJson(res, 200, snapshot(conv, error))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       sendJson(res, 500, { error: message })
