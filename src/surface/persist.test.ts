@@ -41,6 +41,7 @@ describe('surface persist', () => {
       assert.equal(loaded.id, session.id)
       assert.equal(loaded.turns.length, 2)
       assert.equal(loaded.turns[1]?.content, 'hello')
+      assert.equal(loaded.locale, session.locale)
       clearSession(path)
       assert.equal(readFileSync(path, 'utf8'), '')
     } finally {

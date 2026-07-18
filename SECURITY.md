@@ -6,9 +6,9 @@ We provide security updates for the following versions:
 
 | Version | Supported Until |
 | ------- | --------------- |
-| 0.10.x  | 2027-07-01      |
-| 0.9.x   | 2026-12-31      |
-| < 0.9   | Unsupported     |
+| 0.11.x  | 2027-07-01      |
+| 0.10.x  | 2027-01-01      |
+| < 0.10  | Unsupported     |
 
 ## Reporting a Vulnerability
 

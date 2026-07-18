@@ -8,23 +8,33 @@ import {
   respondWithProvider,
 } from './manager.ts'
 import type { AiosMcpSession } from '../aios/mcp-client.ts'
+import { resolveLocale } from './locale.ts'
 
 describe('ConversationManager', () => {
-  it('cria sessão com system turn', () => {
-    const s = createSession({ summary: '1 workspace · healthy' })
+  it('creates session with English system turn by default', () => {
+    const s = createSession({ summary: '1 workspace · healthy' }, { locale: 'en' })
+    assert.equal(s.locale, 'en')
     assert.equal(s.turns[0]?.role, 'system')
-    assert.match(s.turns[0]!.content, /Estado operacional/)
+    assert.match(s.turns[0]!.content, /Operational state:/)
+    assert.match(s.turns[0]!.content, /in English/)
   })
 
-  it('responde a status local a partir do system prompt', () => {
-    const s = createSession({ summary: 'demo ok' })
-    const a = respondLocal(s, 'qual o status?')
+  it('creates Portuguese system turn when locale=pt', () => {
+    const s = createSession({ summary: '1 workspace · healthy' }, { locale: 'pt' })
+    assert.equal(s.locale, 'pt')
+    assert.match(s.turns[0]!.content, /Estado operacional:/)
+    assert.match(s.turns[0]!.content, /português/)
+  })
+
+  it('responds to status locally from the system prompt', () => {
+    const s = createSession({ summary: 'demo ok' }, { locale: 'en' })
+    const a = respondLocal(s, 'what is the status?')
     assert.equal(a.role, 'assistant')
     assert.equal(a.via, 'local')
-    assert.match(a.content, /Estado operacional|demo ok/)
+    assert.match(a.content, /Operational state:|demo ok/)
   })
 
-  it('isPipelineIntent detecta análise', () => {
+  it('isPipelineIntent detects analysis', () => {
     assert.equal(isPipelineIntent('Analisa meu projeto'), true)
     assert.equal(isPipelineIntent('analyze the project'), true)
     assert.equal(isPipelineIntent('inspeciona o repo'), true)
@@ -32,8 +42,8 @@ describe('ConversationManager', () => {
     assert.equal(isPipelineIntent('/run algo'), false)
   })
 
-  it('respondWithPipeline marca via pipeline', async () => {
-    const s = createSession({ summary: 'ctx' })
+  it('respondWithPipeline marks via pipeline', async () => {
+    const s = createSession({ summary: 'ctx' }, { locale: 'en' })
     const fake = {
       runPipeline: async () => ({
         summary: 'pipeline OK · intent=analyze.project',
@@ -45,32 +55,41 @@ describe('ConversationManager', () => {
     assert.match(a.content, /pipeline OK/)
   })
 
-  it('respondLocal em intent pipeline sem MCP orienta run', () => {
-    const s = createSession({ summary: 'ctx' })
+  it('respondLocal on pipeline intent without MCP points to run', () => {
+    const s = createSession({ summary: 'ctx' }, { locale: 'en' })
     const a = respondLocal(s, 'Analisa o projeto')
     assert.equal(a.via, 'local')
     assert.match(a.content, /pipeline|companion run|\/run/i)
   })
 
-  it('respondWithProvider usa MCP e marca via provider', async () => {
-    const s = createSession({ summary: 'ctx' })
+  it('respondWithProvider uses MCP and marks via provider', async () => {
+    const s = createSession({ summary: 'ctx' }, { locale: 'en' })
     const fake = {
-      providerChat: async () => ({ content: 'olá do provider' }),
+      providerChat: async () => ({ content: 'hello from provider' }),
     } as unknown as AiosMcpSession
-    const a = await respondWithProvider(s, 'oi', fake)
+    const a = await respondWithProvider(s, 'hi', fake)
     assert.equal(a.via, 'provider')
-    assert.equal(a.content, 'olá do provider')
+    assert.equal(a.content, 'hello from provider')
   })
 
-  it('respondWithProvider faz fallback local se MCP falhar', async () => {
-    const s = createSession({ summary: 'ctx demo' })
+  it('respondWithProvider falls back locally if MCP fails', async () => {
+    const s = createSession({ summary: 'ctx demo' }, { locale: 'en' })
     const fake = {
       providerChat: async () => {
         throw new Error('provider down')
       },
     } as unknown as AiosMcpSession
-    const a = await respondWithProvider(s, 'ajuda', fake)
+    const a = await respondWithProvider(s, 'help', fake)
     assert.equal(a.via, 'local')
-    assert.match(a.content, /pipeline|status|caps|Voz/i)
+    assert.match(a.content, /pipeline|status|caps|Voice/i)
+  })
+
+  it('resolveLocale defaults to en; pt variants map to pt', () => {
+    assert.equal(resolveLocale(undefined), 'en')
+    assert.equal(resolveLocale(''), 'en')
+    assert.equal(resolveLocale('en'), 'en')
+    assert.equal(resolveLocale('pt'), 'pt')
+    assert.equal(resolveLocale('pt-BR'), 'pt')
+    assert.equal(resolveLocale('PT-pt'), 'pt')
   })
 })
