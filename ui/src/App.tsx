@@ -221,10 +221,12 @@ export function App() {
           <span className="state-text">
             {snap?.operational.summary || (error ? 'Surface offline' : 'Connecting…')}
           </span>
-          {snap?.operational.branch && (
-            <span className="state-meta">{snap.operational.branch}</span>
-          )}
           <div className="state-actions">
+            {snap?.operational.branch && (
+              <span className="chip branch" title="Git branch">
+                {snap.operational.branch}
+              </span>
+            )}
             {consumption && (
               <span className={`chip ${consumption.tone}`} title="provider.chat consumption">
                 {consumption.label}
@@ -349,6 +351,7 @@ export function App() {
                 key={`${t.at}-${i}`}
                 className={`bubble ${t.role}`}
               >
+                {t.via && <span className="via">{t.via}</span>}
                 <p>
                   {t.content ||
                     (sending && i === turns.length - 1 && t.role === 'assistant'
@@ -357,7 +360,6 @@ export function App() {
                         : '…'
                       : '')}
                 </p>
-                {t.via && <span className="via">{t.via}</span>}
               </article>
             ))}
           </div>

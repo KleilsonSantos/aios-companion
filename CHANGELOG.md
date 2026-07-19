@@ -13,7 +13,9 @@ Versioning: SemVer.
 
 - Typography: Space Grotesk (brand) + IBM Plex Sans (UI); drop Instrument Serif / Outfit (#115)
 - Attention field: flex row layout (no sparse absolute constellation); rail headings unified as uppercase UI labels
-- State-line: action chip group with clearer gaps; signal labels closer to nodes
+- State-line: branch as chip in `state-actions` (no floating `main`); tighter section gaps
+- Chat: `via` as route chip above content; assistant turns with left rule for scan
+- Signal / rail: closer node↔label; denser Attention + Memory lists
 
 ## [0.14.0] — 2026-07-18
 
