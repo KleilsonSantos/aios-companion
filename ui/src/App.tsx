@@ -5,6 +5,7 @@ import {
   type SignalKind,
 } from './SignalRail'
 import { AttentionField } from './AttentionField'
+import { AgentGraph, type PipelineGraphData } from './AgentGraph'
 import {
   fetchSurface,
   fetchWorkspaces,
@@ -27,6 +28,7 @@ export function App() {
   const [sending, setSending] = useState(false)
   const [streamPhase, setStreamPhase] = useState<string | null>(null)
   const [lastSignal, setLastSignal] = useState<SignalKind>('idle')
+  const [pipelineLive, setPipelineLive] = useState(false)
   const [wsOpen, setWsOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState<SurfaceWorkspace[] | null>(null)
@@ -143,6 +145,7 @@ export function App() {
     setSending(true)
     setStreamPhase(null)
     setLastSignal('idle')
+    setPipelineLive(false)
     setError(null)
     setDraft('')
     const at = new Date().toISOString()
@@ -160,6 +163,7 @@ export function App() {
         onStatus: (phase) => {
           setStreamPhase(phase)
           setLastSignal(signalFromPhaseOrVia(phase, null))
+          setPipelineLive(phase === 'pipeline')
         },
         onDelta: (text) => {
           setTurns((prev) => {
@@ -177,8 +181,10 @@ export function App() {
       })
       const via = [...out.turns].reverse().find((t) => t.role === 'assistant')?.via
       setLastSignal(signalFromPhaseOrVia(null, via))
+      setPipelineLive(false)
       startTransition(() => applySnap(out))
     } catch (err) {
+      setPipelineLive(false)
       setError(err instanceof Error ? err.message : String(err))
       setTurns((prev) => {
         if (prev.length === 0) return prev
@@ -201,6 +207,7 @@ export function App() {
   const memory = snap?.memory
   const workspaceLabel = memory?.workspaceId || 'workspace'
   const localeLabel = snap?.locale || 'en'
+  const lastPipeline = (snap?.lastPipeline ?? null) as PipelineGraphData | null
 
   return (
     <div className="stage">
@@ -336,6 +343,8 @@ export function App() {
           hasErrors={snap?.governance.hasErrors}
           providerOk={snap?.governance.providerOk}
         />
+
+        <AgentGraph graph={lastPipeline} live={pipelineLive} />
 
         <section className="chat" aria-label="Conversation">
           <div className="transcript" ref={listRef}>

@@ -48,11 +48,22 @@ describe('ConversationManager', () => {
       runPipeline: async () => ({
         summary: 'pipeline OK · intent=analyze.project',
         passed: true,
+        intent: { type: 'analyze.project' },
+        workflow: {
+          ran: ['architecture', 'docs'],
+          skipped: ['appsec'],
+        },
       }),
     } as unknown as AiosMcpSession
     const a = await respondWithPipeline(s, 'Analisa meu projeto', fake)
     assert.equal(a.via, 'pipeline')
     assert.match(a.content, /pipeline OK/)
+    assert.deepEqual(a.pipeline, {
+      intent: 'analyze.project',
+      ran: ['architecture', 'docs'],
+      skipped: ['appsec'],
+      passed: true,
+    })
   })
 
   it('respondLocal on pipeline intent without MCP points to run', () => {

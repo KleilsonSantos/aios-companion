@@ -5,6 +5,21 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-07-18
+
+**Pipeline agent graph** — third presence spike: agents from real `aios_run_pipeline` workflow. Cinematic UX (#37) still not fully unparked.
+
+### Added
+
+- `pipeline` meta on pipeline chat turns + `lastPipeline` on surface snapshot (#118)
+- `AgentGraph` UI: ran / skipped / live-pending nodes (CSS only; no polling)
+
+### Notes
+
+- Resource-Aware: reacts to chat/SSE pipeline phase only
+- Respects `prefers-reduced-motion`
+- Does not fully unpark [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)
+
 ## [0.14.1] — 2026-07-18
 
 **Surface type + spacing** — ops-appropriate sans stack; denser Attention field and state-line rhythm (#115).
