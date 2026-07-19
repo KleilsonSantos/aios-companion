@@ -5,6 +5,10 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+### Changed
+
+- Companion `AGENTS.md` canonical context order (pointer-style; mirrors AIOS #151) (#109)
+
 ## [0.13.0] — 2026-07-18
 
 **Presence spike** — Signal rail on the surface + Vite UI root fix. Partial progress on #37 (does not fully unpark cinematic UX).
