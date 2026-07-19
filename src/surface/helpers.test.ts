@@ -5,6 +5,7 @@ import {
   buildSurfaceSnapshot,
   formatConsumptionChip,
   parseChatBody,
+  parseLocaleBody,
   parseMemoryBody,
   parseMemoryChatCommand,
   parseWorkspaceBody,
@@ -32,7 +33,7 @@ describe('surface helpers', () => {
   })
 
   it('buildSurfaceSnapshot maps attention + ops + memory + consumption', () => {
-    const session = createSession({ summary: '1 workspace' })
+    const session = createSession({ summary: '1 workspace' }, { locale: 'en' })
     const snap = buildSurfaceSnapshot({
       session,
       operational: {
@@ -64,6 +65,7 @@ describe('surface helpers', () => {
       },
     })
     assert.equal(snap.service, 'companion-surface')
+    assert.equal(snap.locale, 'en')
     assert.equal(snap.operational.branch, 'sandbox')
     assert.equal(snap.governance.attention.length, 1)
     assert.equal(snap.governance.consumption?.label.includes('3 chat'), true)
@@ -141,5 +143,12 @@ describe('surface helpers', () => {
     })
     assert.equal('error' in parseWorkspaceBody({}), true)
     assert.equal('error' in parseWorkspaceBody(null), true)
+  })
+
+  it('parseLocaleBody accepts en/pt', () => {
+    assert.deepEqual(parseLocaleBody({ locale: 'en' }), { locale: 'en' })
+    assert.deepEqual(parseLocaleBody({ locale: 'PT-BR' }), { locale: 'pt' })
+    assert.equal('error' in parseLocaleBody({ locale: 'fr' }), true)
+    assert.equal('error' in parseLocaleBody({}), true)
   })
 })
