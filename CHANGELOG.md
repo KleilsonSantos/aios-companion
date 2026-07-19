@@ -5,9 +5,17 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-07-18
+
+**Surface type + spacing** — ops-appropriate sans stack; denser Attention field and state-line rhythm (#115).
+
 ### Changed
 
-- Companion `AGENTS.md` canonical context order (pointer-style; mirrors AIOS #151) (#109)
+- Typography: Space Grotesk (brand) + IBM Plex Sans (UI); drop Instrument Serif / Outfit (#115)
+- Attention field: flex row layout (no sparse absolute constellation); rail headings unified as uppercase UI labels
+- State-line: branch as chip in `state-actions` (no floating `main`); tighter section gaps
+- Chat: `via` as route chip above content; assistant turns with left rule for scan
+- Signal / rail: track line between node centers (no left overshoot); label optical center; denser Attention + Memory lists
 
 ## [0.14.0] — 2026-07-18
 
