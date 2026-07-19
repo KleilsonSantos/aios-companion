@@ -6,7 +6,8 @@ We provide security updates for the following versions:
 
 | Version | Supported Until |
 | ------- | --------------- |
-| 0.12.x  | 2027-07-01      |
+| 0.13.x  | 2027-07-01      |
+| 0.12.x  | 2027-01-01      |
 | 0.11.x  | 2027-01-01      |
 | 0.10.x  | 2027-01-01      |
 | < 0.10  | Unsupported     |

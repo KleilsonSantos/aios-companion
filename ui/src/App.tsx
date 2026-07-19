@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
 import {
+  SignalRail,
+  signalFromPhaseOrVia,
+  type SignalKind,
+} from './SignalRail'
+import {
   fetchSurface,
   fetchWorkspaces,
   postMemory,
@@ -20,6 +25,7 @@ export function App() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [streamPhase, setStreamPhase] = useState<string | null>(null)
+  const [lastSignal, setLastSignal] = useState<SignalKind>('idle')
   const [wsOpen, setWsOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState<SurfaceWorkspace[] | null>(null)
@@ -135,6 +141,7 @@ export function App() {
     if (!message || sending) return
     setSending(true)
     setStreamPhase(null)
+    setLastSignal('idle')
     setError(null)
     setDraft('')
     const at = new Date().toISOString()
@@ -149,7 +156,10 @@ export function App() {
     ])
     try {
       const out = await sendChatStream(message, {
-        onStatus: (phase) => setStreamPhase(phase),
+        onStatus: (phase) => {
+          setStreamPhase(phase)
+          setLastSignal(signalFromPhaseOrVia(phase, null))
+        },
         onDelta: (text) => {
           setTurns((prev) => {
             if (prev.length === 0) return prev
@@ -164,6 +174,8 @@ export function App() {
           })
         },
       })
+      const via = [...out.turns].reverse().find((t) => t.role === 'assistant')?.via
+      setLastSignal(signalFromPhaseOrVia(null, via))
       startTransition(() => applySnap(out))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -311,6 +323,8 @@ export function App() {
             <code>pnpm surface</code> (API :8790).
           </p>
         )}
+
+        <SignalRail signal={lastSignal} live={sending} />
 
         <section className="chat" aria-label="Conversation">
           <div className="transcript" ref={listRef}>
