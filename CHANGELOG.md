@@ -9,6 +9,20 @@ Versioning: SemVer.
 
 - Companion `AGENTS.md` canonical context order (pointer-style; mirrors AIOS #151) (#109)
 
+## [0.14.0] — 2026-07-18
+
+**Attention field** — second presence panel: governance attention as a visual constellation. Cinematic UX (#37) still not fully unparked.
+
+### Added
+
+- `AttentionField` UI from `governance.attention` (severity → color; empty calm state) (#112)
+- Driven by existing surface snapshot / Refresh — no polling
+
+### Notes
+
+- CSS only; respects `prefers-reduced-motion`
+- Side rail list kept for detail; field is the presence layer
+
 ## [0.13.0] — 2026-07-18
 
 **Presence spike** — Signal rail on the surface + Vite UI root fix. Partial progress on #37 (does not fully unpark cinematic UX).

@@ -4,6 +4,7 @@ import {
   signalFromPhaseOrVia,
   type SignalKind,
 } from './SignalRail'
+import { AttentionField } from './AttentionField'
 import {
   fetchSurface,
   fetchWorkspaces,
@@ -325,6 +326,12 @@ export function App() {
         )}
 
         <SignalRail signal={lastSignal} live={sending} />
+
+        <AttentionField
+          items={attention}
+          hasErrors={snap?.governance.hasErrors}
+          providerOk={snap?.governance.providerOk}
+        />
 
         <section className="chat" aria-label="Conversation">
           <div className="transcript" ref={listRef}>

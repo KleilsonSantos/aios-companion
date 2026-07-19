@@ -1,7 +1,7 @@
 # Cinematic UX vision — Companion (parked + spike)
 
 > **Status:** parked · **Issue:** [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)  
-> **Spike in progress:** Signal rail on the surface (#106) — one panel tied to SSE `phase` / turn `via`. Does **not** fully unpark #37.  
+> **Spikes:** Signal rail (#106) · Attention field (#112) — presence panels tied to real MCP/chat signals. Does **not** fully unpark #37.  
 > Boundary: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md).
 
 ## In one sentence
