@@ -557,7 +557,7 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.55rem;
 }
 
 .signal-rail-head h2 {
@@ -575,49 +575,54 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Single track line between first/last node centers — no overshoot */
+.signal-track {
+  position: relative;
+}
+
+.signal-track-line {
+  position: absolute;
+  /* 4 equal columns → centers at 12.5% and 87.5% */
+  left: 12.5%;
+  right: 12.5%;
+  top: 0.35rem; /* vertical center of 0.7rem dot */
+  height: 1px;
+  background: color-mix(in srgb, var(--line) 85%, var(--moss));
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.signal-rail.live .signal-track-line {
+  animation: signal-flow 1.1s ease-in-out infinite;
+}
+
 .signal-nodes {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  position: relative;
+  z-index: 1;
 }
 
 .signal-node {
-  position: relative;
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.22rem;
+  gap: 0.4rem;
   min-width: 0;
 }
 
-.signal-link {
-  position: absolute;
-  top: 0.42rem;
-  right: calc(50% + 0.55rem);
-  left: auto;
-  width: calc(100% - 0.95rem);
-  height: 1px;
-  background: color-mix(in srgb, var(--line) 80%, var(--moss));
-  transform: translateX(-100%);
-  transform-origin: right center;
-  opacity: 0.55;
-}
-
-.signal-rail.live .signal-link {
-  animation: signal-flow 1.1s ease-in-out infinite;
-}
-
 .signal-dot {
+  box-sizing: border-box;
   width: 0.7rem;
   height: 0.7rem;
+  flex: 0 0 0.7rem;
   border-radius: 50%;
   border: 2px solid var(--line);
-  background: transparent;
+  background: color-mix(in srgb, var(--paper) 80%, #fff);
   transition:
     background 0.25s ease,
     border-color 0.25s ease,
@@ -627,7 +632,7 @@ body {
 
 .signal-node.dim .signal-dot {
   border-color: color-mix(in srgb, var(--moss) 45%, var(--line));
-  background: color-mix(in srgb, var(--moss) 12%, transparent);
+  background: color-mix(in srgb, var(--moss) 12%, #fff);
 }
 
 .signal-node.on .signal-dot {
@@ -648,11 +653,15 @@ body {
 
 .signal-label {
   font-size: 0.68rem;
-  letter-spacing: 0.05em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  /* letter-spacing adds trailing space — pull back so glyph center matches dot */
+  margin-right: -0.06em;
   text-transform: uppercase;
   color: var(--ink-soft);
   text-align: center;
-  line-height: 1.1;
+  line-height: 1.15;
+  max-width: 100%;
 }
 
 .signal-node.on .signal-label,
@@ -684,7 +693,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .signal-rail.live .signal-link,
+  .signal-rail.live .signal-track-line,
   .signal-node.hot .signal-dot {
     animation: none;
   }
@@ -725,10 +734,10 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.45rem 0.95rem;
+  gap: 0.55rem 1.25rem;
   min-height: 0;
   width: 100%;
-  padding: 0.55rem 0.7rem;
+  padding: 0.7rem 0.85rem;
   border: 1px solid var(--line);
   background:
     radial-gradient(

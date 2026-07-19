@@ -15,7 +15,7 @@ Versioning: SemVer.
 - Attention field: flex row layout (no sparse absolute constellation); rail headings unified as uppercase UI labels
 - State-line: branch as chip in `state-actions` (no floating `main`); tighter section gaps
 - Chat: `via` as route chip above content; assistant turns with left rule for scan
-- Signal / rail: closer node↔label; denser Attention + Memory lists
+- Signal / rail: track line between node centers (no left overshoot); label optical center; denser Attention + Memory lists
 
 ## [0.14.0] — 2026-07-18
 

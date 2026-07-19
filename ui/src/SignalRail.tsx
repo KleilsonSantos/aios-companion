@@ -62,18 +62,20 @@ export function SignalRail(props: {
         <h2>Signal</h2>
         <span className="signal-caption">{routeCaption(signal)}</span>
       </div>
-      <ol className="signal-nodes">
-        {NODES.map((n, i) => {
-          const state = nodeState(n.id, signal, live)
-          return (
-            <li key={n.id} className={`signal-node ${state}`}>
-              {i > 0 && <span className="signal-link" aria-hidden="true" />}
-              <span className="signal-dot" />
-              <span className="signal-label">{n.label}</span>
-            </li>
-          )
-        })}
-      </ol>
+      <div className="signal-track">
+        <div className="signal-track-line" aria-hidden="true" />
+        <ol className="signal-nodes">
+          {NODES.map((n) => {
+            const state = nodeState(n.id, signal, live)
+            return (
+              <li key={n.id} className={`signal-node ${state}`}>
+                <span className="signal-dot" />
+                <span className="signal-label">{n.label}</span>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
     </section>
   )
 }
