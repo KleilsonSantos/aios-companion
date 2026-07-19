@@ -20,6 +20,7 @@ export type SurfaceTurn = {
   content: string
   at: string
   via?: ChatTurn['via']
+  pipeline?: ChatTurn['pipeline']
 }
 
 export type SurfaceMemoryEntry = {
@@ -54,6 +55,8 @@ export type SurfaceSnapshot = {
     entries: SurfaceMemoryEntry[]
   }
   turns: SurfaceTurn[]
+  /** Latest pipeline trace from conversation (presence #118). */
+  lastPipeline?: ChatTurn['pipeline'] | null
 }
 
 /** Format provider.chat metrics for the surface state line (#82). */
@@ -87,7 +90,19 @@ export function publicTurns(session: ConversationSession): SurfaceTurn[] {
       content: t.content,
       at: t.at,
       ...(t.via ? { via: t.via } : {}),
+      ...(t.pipeline ? { pipeline: t.pipeline } : {}),
     }))
+}
+
+/** Most recent assistant pipeline trace (for presence panel). */
+export function lastPipelineTrace(
+  session: ConversationSession,
+): ChatTurn['pipeline'] | null {
+  for (let i = session.turns.length - 1; i >= 0; i--) {
+    const t = session.turns[i]
+    if (t?.role === 'assistant' && t.pipeline) return t.pipeline
+  }
+  return null
 }
 
 export function buildSurfaceSnapshot(options: {
@@ -102,6 +117,7 @@ export function buildSurfaceSnapshot(options: {
   const gov = options.governance
   const ws = options.workspaceId || options.memory?.workspaceId || defaultWorkspaceId()
   const mem = options.memory
+  const lastPipeline = lastPipelineTrace(options.session)
   return {
     ok: !options.error,
     service: 'companion-surface',
@@ -132,6 +148,7 @@ export function buildSurfaceSnapshot(options: {
       })),
     },
     turns: publicTurns(options.session),
+    lastPipeline,
   }
 }
 

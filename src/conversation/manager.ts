@@ -11,11 +11,20 @@ import {
   type CompanionLocale,
 } from './locale.ts'
 
+export type PipelineTrace = {
+  intent?: string
+  ran: string[]
+  skipped: string[]
+  passed: boolean
+}
+
 export type ChatTurn = {
   role: 'system' | 'user' | 'assistant'
   content: string
   at: string
   via?: 'local' | 'provider' | 'pipeline'
+  /** Present when via=pipeline — real aios_run_pipeline workflow (#118). */
+  pipeline?: PipelineTrace
 }
 
 export type ConversationSession = {
@@ -150,6 +159,12 @@ export async function respondWithPipeline(
       content: out.summary,
       at: now(),
       via: 'pipeline',
+      pipeline: {
+        ...(out.intent?.type ? { intent: out.intent.type } : {}),
+        ran: [...(out.workflow?.ran || [])],
+        skipped: [...(out.workflow?.skipped || [])],
+        passed: out.passed,
+      },
     }
     session.turns.push(assistant)
     return assistant
