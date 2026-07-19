@@ -33,6 +33,7 @@ export type SurfaceSnapshot = {
   ok: boolean
   service: 'companion-surface'
   conversationId: string
+  locale: 'en' | 'pt'
   operational: {
     summary: string
     branch?: string
@@ -105,6 +106,7 @@ export function buildSurfaceSnapshot(options: {
     ok: !options.error,
     service: 'companion-surface',
     conversationId: options.session.id,
+    locale: options.session.locale,
     operational: {
       summary: op?.summary || options.error || 'Operational state unavailable',
       ...(op?.git?.branch ? { branch: op.git.branch } : {}),
@@ -209,6 +211,22 @@ export function parseWorkspaceBody(body: unknown):
     return { error: 'body.workspaceId required (non-empty string)' }
   }
   return { workspaceId: obj.workspaceId.trim() }
+}
+
+export function parseLocaleBody(body: unknown):
+  | { locale: 'en' | 'pt' }
+  | { error: string } {
+  if (!body || typeof body !== 'object') {
+    return { error: 'JSON body required' }
+  }
+  const raw = (body as { locale?: unknown }).locale
+  if (typeof raw !== 'string') {
+    return { error: 'body.locale required ("en" | "pt")' }
+  }
+  const v = raw.trim().toLowerCase()
+  if (v === 'en' || v === 'pt') return { locale: v }
+  if (v.startsWith('pt-')) return { locale: 'pt' }
+  return { error: 'body.locale must be "en" or "pt"' }
 }
 
 export function parseMemoryBody(body: unknown): {

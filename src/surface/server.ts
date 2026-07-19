@@ -22,6 +22,7 @@ import {
   parseMemoryBody,
   parseMemoryChatCommand,
   parseWorkspaceBody,
+  parseLocaleBody,
 } from './helpers.ts'
 import { loadSession, saveSession } from './persist.ts'
 import {
@@ -303,6 +304,31 @@ const server = createServer(async (req, res) => {
     return
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/locale') {
+    try {
+      const parsed = parseLocaleBody(await readJsonBody(req))
+      if ('error' in parsed) {
+        sendJson(res, 400, { error: parsed.error })
+        return
+      }
+      const session = await ensureMcp()
+      try {
+        lastOperational = await session.operationalState()
+      } catch {
+        /* keep lastOperational */
+      }
+      conversation = createSession(lastOperational ?? undefined, {
+        locale: parsed.locale,
+      })
+      persistConversation()
+      sendJson(res, 200, snapshot(conversation))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/chat') {
     try {
       const parsed = parseChatBody(await readJsonBody(req))
@@ -390,12 +416,15 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/session/reset') {
     try {
       const session = await ensureMcp()
+      const prevLocale = conversation?.locale
       try {
         lastOperational = await session.operationalState()
       } catch {
         lastOperational = null
       }
-      conversation = createSession(lastOperational ?? undefined)
+      conversation = createSession(lastOperational ?? undefined, {
+        ...(prevLocale ? { locale: prevLocale } : {}),
+      })
       persistConversation()
       sendJson(res, 200, snapshot(conversation))
     } catch (err) {

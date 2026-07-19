@@ -5,6 +5,7 @@ import {
   postMemory,
   refreshSurface,
   resetSession,
+  selectLocale,
   selectWorkspace,
   sendChatStream,
   type SurfaceSnapshot,
@@ -20,6 +21,7 @@ export function App() {
   const [sending, setSending] = useState(false)
   const [streamPhase, setStreamPhase] = useState<string | null>(null)
   const [wsOpen, setWsOpen] = useState(false)
+  const [langOpen, setLangOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState<SurfaceWorkspace[] | null>(null)
   const [wsLoading, setWsLoading] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -89,6 +91,7 @@ export function App() {
       setWsOpen(false)
       return
     }
+    setLangOpen(false)
     setWsOpen(true)
     if (workspaces) return
     setWsLoading(true)
@@ -109,6 +112,17 @@ export function App() {
     setWsOpen(false)
     try {
       const data = await selectWorkspace(id)
+      startTransition(() => applySnap(data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function onPickLocale(locale: 'en' | 'pt') {
+    setError(null)
+    setLangOpen(false)
+    try {
+      const data = await selectLocale(locale)
       startTransition(() => applySnap(data))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -173,6 +187,7 @@ export function App() {
   const consumption = snap?.governance.consumption
   const memory = snap?.memory
   const workspaceLabel = memory?.workspaceId || 'workspace'
+  const localeLabel = snap?.locale || 'en'
 
   return (
     <div className="stage">
@@ -234,6 +249,41 @@ export function App() {
                     )
                   })
                 )}
+              </ul>
+            )}
+          </div>
+          <div className="ws-wrap">
+            <button
+              type="button"
+              className="chip ws"
+              onClick={() => {
+                setWsOpen(false)
+                setLangOpen((open) => !open)
+              }}
+              disabled={pending}
+              aria-expanded={langOpen}
+              title="Chat locale (resets conversation)"
+            >
+              {`lang · ${localeLabel}`}
+            </button>
+            {langOpen && (
+              <ul className="ws-menu" role="listbox">
+                {(
+                  [
+                    { id: 'en' as const, label: 'English' },
+                    { id: 'pt' as const, label: 'Português' },
+                  ] as const
+                ).map((opt) => (
+                  <li key={opt.id}>
+                    <button
+                      type="button"
+                      className={opt.id === localeLabel ? 'active' : ''}
+                      onClick={() => void onPickLocale(opt.id)}
+                    >
+                      {opt.label}
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
           </div>
