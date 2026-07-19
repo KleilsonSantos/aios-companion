@@ -13,16 +13,6 @@ function severityClass(severity?: string): 'error' | 'warn' | 'info' {
   return 'info'
 }
 
-/** Stable-ish layout slots so nodes don't jump every render. */
-function slotFor(index: number, total: number): { x: number; y: number } {
-  const cols = Math.min(4, Math.max(1, total))
-  const col = index % cols
-  const row = Math.floor(index / cols)
-  const x = 12 + (col / Math.max(cols - 1, 1)) * 76
-  const y = 18 + row * 28
-  return { x, y }
-}
-
 export function AttentionField(props: {
   items: AttentionItem[]
   hasErrors?: boolean
@@ -57,19 +47,17 @@ export function AttentionField(props: {
               : ' · provider down'}
         </span>
       </div>
-      <div className="attention-sky" role="img" aria-hidden={shown.length === 0}>
-        <div className="attention-horizon" />
+      <div className="attention-sky" role="list">
         {shown.length === 0 ? (
           <p className="attention-calm">Nothing flagged — control plane quiet.</p>
         ) : (
           shown.map((item, i) => {
             const sev = severityClass(item.severity)
-            const { x, y } = slotFor(i, shown.length)
             return (
               <div
                 key={item.id || `${item.title}-${i}`}
                 className={`attention-star ${sev}`}
-                style={{ left: `${x}%`, top: `${y}%` }}
+                role="listitem"
                 title={[item.title || item.id || 'Item', item.detail]
                   .filter(Boolean)
                   .join(' — ')}
