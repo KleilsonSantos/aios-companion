@@ -10,6 +10,7 @@ import {
   parseMemoryChatCommand,
   parseWorkspaceBody,
   publicTurns,
+  lastPipelineTrace,
 } from './helpers.ts'
 
 describe('surface helpers', () => {
@@ -71,6 +72,33 @@ describe('surface helpers', () => {
     assert.equal(snap.governance.consumption?.label.includes('3 chat'), true)
     assert.equal(snap.memory.entries[0]?.content, 'note one')
     assert.equal(snap.ok, true)
+    assert.equal(snap.lastPipeline, null)
+  })
+
+  it('lastPipelineTrace + publicTurns carry pipeline meta', () => {
+    const session = createSession({ summary: 'healthy' }, { locale: 'en' })
+    session.turns.push({
+      role: 'user',
+      content: 'analyze',
+      at: '2026-01-01T00:00:00.000Z',
+    })
+    session.turns.push({
+      role: 'assistant',
+      content: 'pipeline OK',
+      at: '2026-01-01T00:00:01.000Z',
+      via: 'pipeline',
+      pipeline: {
+        intent: 'analyze.project',
+        ran: ['architecture', 'qa'],
+        skipped: ['docs'],
+        passed: true,
+      },
+    })
+    const turns = publicTurns(session)
+    assert.equal(turns[1]?.pipeline?.ran.length, 2)
+    assert.equal(lastPipelineTrace(session)?.intent, 'analyze.project')
+    const snap = buildSurfaceSnapshot({ session })
+    assert.equal(snap.lastPipeline?.passed, true)
   })
 
   it('formatConsumptionChip handles empty and errors', () => {

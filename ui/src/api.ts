@@ -10,6 +10,12 @@ export type SurfaceTurn = {
   content: string
   at: string
   via?: 'local' | 'provider' | 'pipeline'
+  pipeline?: {
+    intent?: string
+    ran: string[]
+    skipped: string[]
+    passed: boolean
+  }
 }
 
 export type SurfaceMemoryEntry = {
@@ -63,6 +69,7 @@ export type SurfaceSnapshot = {
     entries: SurfaceMemoryEntry[]
   }
   turns: SurfaceTurn[]
+  lastPipeline?: SurfaceTurn['pipeline'] | null
   error?: string
 }
 

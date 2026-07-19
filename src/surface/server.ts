@@ -351,6 +351,7 @@ const server = createServer(async (req, res) => {
           content: turn.content,
           at: turn.at,
           via: turn.via,
+          ...(turn.pipeline ? { pipeline: turn.pipeline } : {}),
         },
         ...snapshot(conv),
       })
@@ -396,6 +397,7 @@ const server = createServer(async (req, res) => {
           content: turn.content,
           at: turn.at,
           via: turn.via,
+          ...(turn.pipeline ? { pipeline: turn.pipeline } : {}),
         },
         ...snapshot(conv),
       })
