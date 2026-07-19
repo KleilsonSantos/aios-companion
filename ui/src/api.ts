@@ -38,6 +38,7 @@ export type SurfaceSnapshot = {
   ok: boolean
   service: 'companion-surface'
   conversationId: string
+  locale: 'en' | 'pt'
   operational: {
     summary: string
     branch?: string
@@ -202,6 +203,21 @@ export async function selectWorkspace(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ workspaceId }),
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `HTTP ${res.status}`)
+  }
+  return (await res.json()) as SurfaceSnapshot
+}
+
+export async function selectLocale(
+  locale: 'en' | 'pt',
+): Promise<SurfaceSnapshot> {
+  const res = await fetch('/api/locale', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ locale }),
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }

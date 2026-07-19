@@ -5,6 +5,21 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-07-18
+
+**Surface locale chip** — switch chat EN↔PT from the UI. Resets conversation (new system prompt). Cinematic UX (#37) stays parked.
+
+### Added
+
+- `POST /api/locale` `{ locale: "en"|"pt" }` — recreate session with locale (#103)
+- Surface snapshot includes `locale`; UI chip `lang · en|pt` (on-demand menu)
+- Session reset preserves current locale
+
+### Notes
+
+- Env `COMPANION_LOCALE` still sets the initial default for new sessions
+- Resource-Aware: no polling; menu only
+
 ## [0.11.1] — 2026-07-18
 
 **MCP HTTP smoke** — opt-in live bridge check Companion ↔ AIOS Streamable HTTP. Not in default CI.
