@@ -29,6 +29,13 @@ export function App() {
   const [streamPhase, setStreamPhase] = useState<string | null>(null)
   const [lastSignal, setLastSignal] = useState<SignalKind>('idle')
   const [pipelineLive, setPipelineLive] = useState(false)
+  const [processOpen, setProcessOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem('companion.processOpen') === '1'
+    } catch {
+      return false
+    }
+  })
   const [wsOpen, setWsOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState<SurfaceWorkspace[] | null>(null)
@@ -61,6 +68,21 @@ export function App() {
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [turns])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('companion.processOpen', processOpen ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [processOpen])
+
+  // Auto-open process panels when something real is happening
+  useEffect(() => {
+    if (pipelineLive || (sending && lastSignal !== 'idle')) {
+      setProcessOpen(true)
+    }
+  }, [pipelineLive, sending, lastSignal])
 
   async function onRefresh() {
     setError(null)
@@ -219,7 +241,8 @@ export function App() {
           <p className="brand">Companion</p>
           <h1 className="lede">Talk with the control plane.</h1>
           <p className="sub">
-            One surface — conversation first. AIOS still governs.
+            Start with a question. Open Process only when you want the signal
+            trail.
           </p>
         </header>
 
@@ -239,6 +262,15 @@ export function App() {
                 {consumption.label}
               </span>
             )}
+            <button
+              type="button"
+              className={`ghost process-toggle${processOpen ? ' on' : ''}`}
+              aria-expanded={processOpen}
+              onClick={() => setProcessOpen((v) => !v)}
+              title="Show or hide Signal / Attention / Pipeline"
+            >
+              {processOpen ? 'Hide process' : 'Process'}
+            </button>
             <div className="ws-wrap">
               <button
                 type="button"
@@ -336,23 +368,24 @@ export function App() {
           </p>
         )}
 
-        <SignalRail signal={lastSignal} live={sending} />
-
-        <AttentionField
-          items={attention}
-          hasErrors={snap?.governance.hasErrors}
-          providerOk={snap?.governance.providerOk}
-        />
-
-        <AgentGraph graph={lastPipeline} live={pipelineLive} />
+        {processOpen && (
+          <div className="process-stack">
+            <SignalRail signal={lastSignal} live={sending} />
+            <AttentionField
+              items={attention}
+              hasErrors={snap?.governance.hasErrors}
+              providerOk={snap?.governance.providerOk}
+            />
+            <AgentGraph graph={lastPipeline} live={pipelineLive} />
+          </div>
+        )}
 
         <section className="chat" aria-label="Conversation">
           <div className="transcript" ref={listRef}>
             {turns.length === 0 && (
               <p className="empty">
-                Ask for status, remember a note with{' '}
-                <code>/memory remember …</code>, or run an analysis — pipeline
-                intents route to AIOS.
+                Try <strong>status</strong> — or ask something simple. Analysis
+                words route to the AIOS pipeline when you are ready.
               </p>
             )}
             {turns.map((t, i) => (

@@ -271,9 +271,16 @@ body {
   transition: border-color 0.2s, color 0.2s;
 }
 
-.ghost:hover:not(:disabled) {
+.ghost.process-toggle.on {
   border-color: var(--moss);
   color: var(--moss-deep);
+}
+
+.process-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  animation: rise 0.45s ease-out both;
 }
 
 .ghost:disabled {
@@ -998,9 +1005,7 @@ body {
       'brand brand'
       'state state'
       'banner banner'
-      'signal signal'
-      'attention attention'
-      'pipeline pipeline'
+      'process process'
       'chat rail';
   }
 
@@ -1016,16 +1021,8 @@ body {
     grid-area: banner;
   }
 
-  .signal-rail {
-    grid-area: signal;
-  }
-
-  .attention-field {
-    grid-area: attention;
-  }
-
-  .agent-graph {
-    grid-area: pipeline;
+  .process-stack {
+    grid-area: process;
   }
 
   .chat {

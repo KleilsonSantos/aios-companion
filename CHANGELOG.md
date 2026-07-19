@@ -13,6 +13,7 @@ Versioning: SemVer.
 
 - `pipeline` meta on pipeline chat turns + `lastPipeline` on surface snapshot (#118)
 - `AgentGraph` UI: ran / skipped / live-pending nodes (CSS only; no polling)
+- Conversation-first: Process toggle hides Signal / Attention / Pipeline until opened (auto-opens on live pipeline)
 
 ### Notes
 
