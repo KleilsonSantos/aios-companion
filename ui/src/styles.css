@@ -9,8 +9,9 @@
   --line: rgba(20, 32, 28, 0.12);
   --glow-a: #7eb8a4;
   --glow-b: #d4a574;
-  --font-display: 'Instrument Serif', Georgia, serif;
-  --font-ui: 'Outfit', system-ui, sans-serif;
+  /* Ops surface: technical display + product UI sans (not editorial serif) */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
 }
 
 *,
@@ -77,9 +78,9 @@ body {
   z-index: 1;
   max-width: 920px;
   margin: 0 auto;
-  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 1.75rem) 2.5rem;
+  padding: clamp(1.25rem, 3.5vw, 2.5rem) clamp(1rem, 3vw, 1.75rem) 2rem;
   display: grid;
-  gap: 1.25rem;
+  gap: 0.95rem;
   grid-template-columns: 1fr;
   min-height: 100vh;
   align-content: start;
@@ -92,26 +93,27 @@ body {
 .brand {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.75rem, 8vw, 4.25rem);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 0.95;
+  font-size: clamp(2.35rem, 6.5vw, 3.35rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
   color: var(--moss-deep);
 }
 
 .lede {
-  margin: 0.35rem 0 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.35rem, 3.5vw, 1.85rem);
-  font-weight: 400;
-  font-style: italic;
+  margin: 0.4rem 0 0;
+  font-family: var(--font-ui);
+  font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+  font-weight: 500;
+  font-style: normal;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 
 .sub {
-  margin: 0.5rem 0 0;
-  max-width: 28rem;
-  font-size: 0.98rem;
+  margin: 0.4rem 0 0;
+  max-width: 32rem;
+  font-size: 0.92rem;
   color: var(--ink-soft);
   line-height: 1.45;
 }
@@ -120,8 +122,8 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.55rem 0.75rem;
-  padding: 0.55rem 0.75rem;
+  gap: 0.45rem 0.55rem;
+  padding: 0.65rem 0.85rem;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   animation: rise 0.75s ease-out 0.08s both;
@@ -131,6 +133,7 @@ body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
+  flex: 0 0 auto;
   background: var(--moss);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--moss) 40%, transparent);
   animation: beat 2.4s ease-out infinite;
@@ -154,23 +157,27 @@ body {
 }
 
 .state-text {
-  flex: 1 1 12rem;
-  font-size: 0.9rem;
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
   color: var(--ink-soft);
 }
 
 .state-meta {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   color: var(--moss);
 }
 
 .chip {
-  font-size: 0.78rem;
-  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.28rem 0.55rem;
   border: 1px solid var(--line);
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .chip.ok {
@@ -188,6 +195,14 @@ body {
   background: transparent;
   cursor: pointer;
   font: inherit;
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
 }
 
 .ws-wrap {
@@ -384,10 +399,10 @@ body {
 
 .rail {
   animation: rise 0.85s ease-out 0.18s both;
-  padding-top: 0.25rem;
+  padding-top: 0.15rem;
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
+  gap: 1.05rem;
 }
 
 .attention {
@@ -435,9 +450,12 @@ body {
 
 .att-head h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
 .att-head span {
@@ -495,7 +513,7 @@ body {
 /* Presence spike — signal rail (#106); CSS only, no WebGL */
 .signal-rail {
   animation: rise 0.75s ease-out 0.08s both;
-  padding: 0.85rem 0 0.35rem;
+  padding: 0.7rem 0 0.2rem;
   border-top: 1px solid var(--line);
 }
 
@@ -504,7 +522,7 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.55rem;
 }
 
 .signal-rail-head h2 {
@@ -525,7 +543,7 @@ body {
 .signal-nodes {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0.15rem 0 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -538,7 +556,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.28rem;
   min-width: 0;
 }
 
@@ -668,7 +686,12 @@ body {
 
 .attention-sky {
   position: relative;
-  min-height: 7.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.65rem 1.1rem;
+  min-height: 0;
+  padding: 0.75rem 0.85rem;
   border: 1px solid var(--line);
   background:
     radial-gradient(
@@ -696,41 +719,31 @@ body {
 }
 
 .attention-horizon {
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  bottom: 18%;
-  height: 1px;
-  background: color-mix(in srgb, var(--moss) 35%, transparent);
-  opacity: 0.55;
+  display: none;
 }
 
 .attention-calm {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
   margin: 0;
-  padding: 1rem;
-  text-align: center;
+  padding: 0.35rem 0.15rem;
   font-size: 0.88rem;
   color: var(--ink-soft);
 }
 
 .attention-star {
-  position: absolute;
-  transform: translate(-50%, -50%);
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  max-width: 6.5rem;
-  animation: attention-in 0.55s ease-out both;
+  align-items: flex-start;
+  gap: 0.45rem;
+  max-width: 17rem;
+  padding: 0.2rem 0;
+  animation: attention-in 0.45s ease-out both;
 }
 
 .attention-star-core {
-  width: 0.7rem;
-  height: 0.7rem;
+  flex: 0 0 auto;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-top: 0.2rem;
   border-radius: 50%;
   border: 2px solid var(--line);
   background: color-mix(in srgb, var(--moss) 40%, #fff);
@@ -757,15 +770,10 @@ body {
 }
 
 .attention-star-label {
-  font-size: 0.68rem;
-  line-height: 1.2;
-  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: left;
   color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .attention-star.error .attention-star-label {
@@ -776,11 +784,11 @@ body {
 @keyframes attention-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -40%) scale(0.85);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translateY(0);
   }
 }
 

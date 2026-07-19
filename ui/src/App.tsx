@@ -224,98 +224,100 @@ export function App() {
           {snap?.operational.branch && (
             <span className="state-meta">{snap.operational.branch}</span>
           )}
-          {consumption && (
-            <span className={`chip ${consumption.tone}`} title="provider.chat consumption">
-              {consumption.label}
-            </span>
-          )}
-          <div className="ws-wrap">
-            <button
-              type="button"
-              className="chip ws"
-              onClick={() => void onToggleWorkspaces()}
-              disabled={pending || wsLoading}
-              aria-expanded={wsOpen}
-              title="Select AIOS workspace (on-demand)"
-            >
-              {wsLoading ? 'ws…' : `ws · ${workspaceLabel}`}
-            </button>
-            {wsOpen && (
-              <ul className="ws-menu" role="listbox">
-                {(workspaces || []).length === 0 ? (
-                  <li className="ws-empty">No workspaces registered</li>
-                ) : (
-                  (workspaces || []).map((w) => {
-                    const id = w.id || ''
-                    if (!id) return null
-                    return (
-                      <li key={id}>
-                        <button
-                          type="button"
-                          className={id === workspaceLabel ? 'active' : ''}
-                          onClick={() => void onPickWorkspace(id)}
-                        >
-                          {w.name || id}
-                          {w.default ? ' · default' : ''}
-                        </button>
-                      </li>
-                    )
-                  })
-                )}
-              </ul>
+          <div className="state-actions">
+            {consumption && (
+              <span className={`chip ${consumption.tone}`} title="provider.chat consumption">
+                {consumption.label}
+              </span>
             )}
-          </div>
-          <div className="ws-wrap">
+            <div className="ws-wrap">
+              <button
+                type="button"
+                className="chip ws"
+                onClick={() => void onToggleWorkspaces()}
+                disabled={pending || wsLoading}
+                aria-expanded={wsOpen}
+                title="Select AIOS workspace (on-demand)"
+              >
+                {wsLoading ? 'ws…' : `ws · ${workspaceLabel}`}
+              </button>
+              {wsOpen && (
+                <ul className="ws-menu" role="listbox">
+                  {(workspaces || []).length === 0 ? (
+                    <li className="ws-empty">No workspaces registered</li>
+                  ) : (
+                    (workspaces || []).map((w) => {
+                      const id = w.id || ''
+                      if (!id) return null
+                      return (
+                        <li key={id}>
+                          <button
+                            type="button"
+                            className={id === workspaceLabel ? 'active' : ''}
+                            onClick={() => void onPickWorkspace(id)}
+                          >
+                            {w.name || id}
+                            {w.default ? ' · default' : ''}
+                          </button>
+                        </li>
+                      )
+                    })
+                  )}
+                </ul>
+              )}
+            </div>
+            <div className="ws-wrap">
+              <button
+                type="button"
+                className="chip ws"
+                onClick={() => {
+                  setWsOpen(false)
+                  setLangOpen((open) => !open)
+                }}
+                disabled={pending}
+                aria-expanded={langOpen}
+                title="Chat locale (resets conversation)"
+              >
+                {`lang · ${localeLabel}`}
+              </button>
+              {langOpen && (
+                <ul className="ws-menu" role="listbox">
+                  {(
+                    [
+                      { id: 'en' as const, label: 'English' },
+                      { id: 'pt' as const, label: 'Português' },
+                    ] as const
+                  ).map((opt) => (
+                    <li key={opt.id}>
+                      <button
+                        type="button"
+                        className={opt.id === localeLabel ? 'active' : ''}
+                        onClick={() => void onPickLocale(opt.id)}
+                      >
+                        {opt.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <button
               type="button"
-              className="chip ws"
-              onClick={() => {
-                setWsOpen(false)
-                setLangOpen((open) => !open)
-              }}
+              className="ghost"
+              onClick={() => void onRefresh()}
               disabled={pending}
-              aria-expanded={langOpen}
-              title="Chat locale (resets conversation)"
             >
-              {`lang · ${localeLabel}`}
+              Refresh
             </button>
-            {langOpen && (
-              <ul className="ws-menu" role="listbox">
-                {(
-                  [
-                    { id: 'en' as const, label: 'English' },
-                    { id: 'pt' as const, label: 'Português' },
-                  ] as const
-                ).map((opt) => (
-                  <li key={opt.id}>
-                    <button
-                      type="button"
-                      className={opt.id === localeLabel ? 'active' : ''}
-                      onClick={() => void onPickLocale(opt.id)}
-                    >
-                      {opt.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => void onNewChat()}
+              disabled={pending}
+            >
+              New chat
+            </button>
           </div>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => void onRefresh()}
-            disabled={pending}
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => void onNewChat()}
-            disabled={pending}
-          >
-            New chat
-          </button>
         </div>
 
         {error && (
