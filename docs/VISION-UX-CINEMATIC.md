@@ -1,7 +1,8 @@
-# Cinematic UX vision — Companion (parked)
+# Cinematic UX vision — Companion (parked + spike)
 
 > **Status:** parked · **Issue:** [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)  
-> **Do not implement now.** Boundary: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md).
+> **Spike in progress:** Signal rail on the surface (#106) — one panel tied to SSE `phase` / turn `via`. Does **not** fully unpark #37.  
+> Boundary: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md).
 
 ## In one sentence
 
@@ -38,4 +39,4 @@ The Companion may one day be the **command room** (Jarvis / Minority Report); AI
 
 ## Relation to the current MVP
 
-Today Companion is CLI + chat + caps + doctor. This vision is the future **presence layer** — documented so it is not lost between chats.
+Today Companion is CLI + chat + caps + doctor + surface. The **Signal rail** (#106) is the first presence spike: Intent → Route → AIOS → Reply lights from real chat routing (no WebGL). Full cinematic layer remains parked until more spikes meet the criteria above.
