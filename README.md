@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen)](package.json)
 
-**Version:** `0.12.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.13.0` — [CHANGELOG](./CHANGELOG.md)
 
 Product documentation is **US English** (mirrors AIOS [ADR-0018](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0018-documentation-language.md)).
 
@@ -77,6 +77,7 @@ pnpm companion surface --api-only
 
 - Refresh / memory recall are **on-demand** (Resource-Aware; no polling loop)
 - Conversation persists locally (`~/.aios-companion/surface-session.json`)
+- Signal rail (presence spike): Intent → Route → AIOS → Reply from chat phase/via (#106)
 - Locale chip (`lang · en|pt`) switches chat copy on demand (`POST /api/locale`; resets conversation)
 - Chat streams via SSE progressive reveal (`POST /api/chat/stream`); workspace chip selects AIOS workspace on demand
 - Chat: analysis → `aios_run_pipeline`; `/memory` · `/memory remember …` · `/memory remember @ws …` → Memory Engine; else `aios_provider_chat` (local fallback)

@@ -5,6 +5,21 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-07-18
+
+**Presence spike** — Signal rail on the surface + Vite UI root fix. Partial progress on #37 (does not fully unpark cinematic UX).
+
+### Added
+
+- Signal rail UI: Intent → Route → AIOS → Reply lights from SSE `phase` / turn `via` (CSS only) (#106)
+- Vite `root` fixed to `ui/` so `companion surface` serves the app (was 404)
+
+### Notes
+
+- Animations respect `prefers-reduced-motion`
+- Resource-Aware: no polling; rail reacts only to in-flight / last turn signals
+- Full cinematic vision (#37) remains parked beyond this spike
+
 ## [0.12.0] — 2026-07-18
 
 **Surface locale chip** — switch chat EN↔PT from the UI. Resets conversation (new system prompt). Cinematic UX (#37) stays parked.
