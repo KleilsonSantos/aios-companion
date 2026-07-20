@@ -5,6 +5,10 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+### Changed
+
+- Figma mirror (#120): Doctor + Gov audit frames after v0.17.0; Process/Doctor heights fixed
+
 ## [0.17.0] — 2026-07-20
 
 **Governance audit presence** — fifth presence spike: on-demand `aios_governance_audit` on the surface. Cinematic UX (#37) still not fully unparked.
