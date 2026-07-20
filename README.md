@@ -37,7 +37,8 @@ Product documentation is **US English** (mirrors AIOS [ADR-0018](https://github.
 
 Canonical in AIOS: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md) · [guide](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/guides/control-plane-companion.md).
 
-Future UX vision (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMATIC.md) · issue [#37](https://github.com/KleilsonSantos/aios-companion/issues/37).
+Future UX vision (parked): [docs/VISION-UX-CINEMATIC.md](./docs/VISION-UX-CINEMATIC.md) · issue [#37](https://github.com/KleilsonSantos/aios-companion/issues/37).  
+Design mirror of **shipped** surface (not speculative): [Figma](https://www.figma.com/design/ZSv9VMBAFkEo908kQtBuwi) · [#120](https://github.com/KleilsonSantos/aios-companion/issues/120).
 
 ## Prerequisites
 
