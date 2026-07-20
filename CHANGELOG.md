@@ -5,6 +5,10 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+### Changed
+
+- Docs: Figma design mirror pointer for shipped surface UI (#120)
+
 ## [0.15.0] — 2026-07-18
 
 **Pipeline agent graph** — third presence spike: agents from real `aios_run_pipeline` workflow. Cinematic UX (#37) still not fully unparked.
