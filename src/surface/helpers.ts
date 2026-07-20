@@ -68,6 +68,20 @@ export type SurfaceSnapshot = {
       severity?: 'error' | 'warn' | 'info'
     }>
   } | null
+  /** Latest on-demand governance audit (presence #127). */
+  lastGovAudit?: {
+    ok: boolean
+    summary: string
+    findings: Array<{
+      id?: string
+      severity?: string
+      title?: string
+      detail?: string
+    }>
+    mustCount: number
+    decisionsCount?: number
+    failCount?: number
+  } | null
 }
 
 /** Format provider.chat metrics for the surface state line (#82). */
@@ -124,6 +138,7 @@ export function buildSurfaceSnapshot(options: {
   workspaceId?: string
   error?: string
   lastDoctor?: SurfaceSnapshot['lastDoctor']
+  lastGovAudit?: SurfaceSnapshot['lastGovAudit']
 }): SurfaceSnapshot {
   const op = options.operational
   const gov = options.governance
@@ -162,6 +177,7 @@ export function buildSurfaceSnapshot(options: {
     turns: publicTurns(options.session),
     lastPipeline,
     lastDoctor: options.lastDoctor ?? null,
+    lastGovAudit: options.lastGovAudit ?? null,
   }
 }
 

@@ -80,6 +80,19 @@ export type SurfaceSnapshot = {
       severity?: 'error' | 'warn' | 'info'
     }>
   } | null
+  lastGovAudit?: {
+    ok: boolean
+    summary: string
+    findings: Array<{
+      id?: string
+      severity?: string
+      title?: string
+      detail?: string
+    }>
+    mustCount: number
+    decisionsCount?: number
+    failCount?: number
+  } | null
   error?: string
 }
 
@@ -262,6 +275,15 @@ export async function postMemory(options: {
 
 export async function postDoctor(): Promise<SurfaceSnapshot> {
   const res = await fetch('/api/doctor', { method: 'POST' })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `HTTP ${res.status}`)
+  }
+  return (await res.json()) as SurfaceSnapshot
+}
+
+export async function postGovAudit(): Promise<SurfaceSnapshot> {
+  const res = await fetch('/api/gov-audit', { method: 'POST' })
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     throw new Error(body.error || `HTTP ${res.status}`)
