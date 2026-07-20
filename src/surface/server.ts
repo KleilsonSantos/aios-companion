@@ -32,6 +32,7 @@ import {
   type StreamPhase,
 } from './stream.ts'
 import type {
+  GovernanceAuditResult,
   GovernanceStatusResult,
   MemoryRecallResult,
 } from '../aios/mcp-client.ts'
@@ -45,6 +46,7 @@ let lastOperational: OperationalStateLite | null = null
 let lastGovernance: GovernanceStatusResult | null = null
 let lastMemory: MemoryRecallResult | null = null
 let lastDoctor: DoctorReport | null = null
+let lastGovAudit: GovernanceAuditResult | null = null
 let memoryWorkspaceId = defaultWorkspaceId()
 
 function now(): string {
@@ -141,6 +143,25 @@ function snapshot(session: ConversationSession, error?: string) {
             detail: c.detail,
             ...(c.severity ? { severity: c.severity } : {}),
           })),
+        }
+      : null,
+    lastGovAudit: lastGovAudit
+      ? {
+          ok: lastGovAudit.ok,
+          summary: lastGovAudit.summary,
+          findings: lastGovAudit.findings.slice(0, 12).map((f) => ({
+            ...(f.id ? { id: f.id } : {}),
+            ...(f.severity ? { severity: f.severity } : {}),
+            ...(f.title ? { title: f.title } : {}),
+            ...(f.detail ? { detail: f.detail } : {}),
+          })),
+          mustCount: lastGovAudit.mustIds.length,
+          ...(lastGovAudit.decisionsCount !== undefined
+            ? { decisionsCount: lastGovAudit.decisionsCount }
+            : {}),
+          ...(lastGovAudit.failCount !== undefined
+            ? { failCount: lastGovAudit.failCount }
+            : {}),
         }
       : null,
   })
@@ -502,6 +523,26 @@ const server = createServer(async (req, res) => {
           ok: lastDoctor.ok,
           summary: lastDoctor.summary,
           checks: lastDoctor.checks,
+        },
+        ...snapshot(conv),
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/gov-audit') {
+    try {
+      const session = await ensureMcp()
+      const conv = await ensureConversation(session)
+      lastGovAudit = await session.governanceAudit()
+      sendJson(res, 200, {
+        govAudit: {
+          ok: lastGovAudit.ok,
+          summary: lastGovAudit.summary,
+          findings: lastGovAudit.findings,
         },
         ...snapshot(conv),
       })

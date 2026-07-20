@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen)](package.json)
 
-**Version:** `0.16.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.17.0` — [CHANGELOG](./CHANGELOG.md)
 
 Product documentation is **US English** (mirrors AIOS [ADR-0018](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0018-documentation-language.md)).
 
@@ -81,6 +81,7 @@ pnpm companion surface --api-only
 - Attention field (presence): governance.attention as a compact signal strip (#112, denser in #115)
 - Pipeline agent graph (presence): real `aios_run_pipeline` workflow nodes (#118)
 - Doctor panel (presence): on-demand `POST /api/doctor` / `runDoctor` checks (#124)
+- Gov audit panel (presence): on-demand `POST /api/gov-audit` / `aios_governance_audit` (#127)
 - Signal rail (presence spike): Intent → Route → AIOS → Reply from chat phase/via (#106)
 - Locale chip (`lang · en|pt`) switches chat copy on demand (`POST /api/locale`; resets conversation)
 - Chat streams via SSE progressive reveal (`POST /api/chat/stream`); workspace chip selects AIOS workspace on demand

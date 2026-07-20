@@ -5,6 +5,21 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-07-20
+
+**Governance audit presence** — fifth presence spike: on-demand `aios_governance_audit` on the surface. Cinematic UX (#37) still not fully unparked.
+
+### Added
+
+- `POST /api/gov-audit` via existing MCP session; `lastGovAudit` on snapshot (#127)
+- `GovAuditField` UI + Audit button in Process stack
+- Resource-Aware: on-demand only (reuses surface MCP)
+
+### Notes
+
+- Does not fully unpark [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)
+- Figma mirror frame follows via [#120](https://github.com/KleilsonSantos/aios-companion/issues/120)
+
 ## [0.16.0] — 2026-07-20
 
 **Doctor presence** — fourth presence spike: on-demand bridge check-up on the surface. Cinematic UX (#37) still not fully unparked.
