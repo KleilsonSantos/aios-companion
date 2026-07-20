@@ -57,6 +57,17 @@ export type SurfaceSnapshot = {
   turns: SurfaceTurn[]
   /** Latest pipeline trace from conversation (presence #118). */
   lastPipeline?: ChatTurn['pipeline'] | null
+  /** Latest on-demand doctor report (presence #124). */
+  lastDoctor?: {
+    ok: boolean
+    summary: string
+    checks: Array<{
+      id: string
+      ok: boolean
+      detail: string
+      severity?: 'error' | 'warn' | 'info'
+    }>
+  } | null
 }
 
 /** Format provider.chat metrics for the surface state line (#82). */
@@ -112,6 +123,7 @@ export function buildSurfaceSnapshot(options: {
   memory?: MemoryRecallResult | null
   workspaceId?: string
   error?: string
+  lastDoctor?: SurfaceSnapshot['lastDoctor']
 }): SurfaceSnapshot {
   const op = options.operational
   const gov = options.governance
@@ -149,6 +161,7 @@ export function buildSurfaceSnapshot(options: {
     },
     turns: publicTurns(options.session),
     lastPipeline,
+    lastDoctor: options.lastDoctor ?? null,
   }
 }
 

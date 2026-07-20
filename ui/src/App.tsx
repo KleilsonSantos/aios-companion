@@ -6,9 +6,11 @@ import {
 } from './SignalRail'
 import { AttentionField } from './AttentionField'
 import { AgentGraph, type PipelineGraphData } from './AgentGraph'
+import { DoctorField } from './DoctorField'
 import {
   fetchSurface,
   fetchWorkspaces,
+  postDoctor,
   postMemory,
   refreshSurface,
   resetSession,
@@ -29,6 +31,7 @@ export function App() {
   const [streamPhase, setStreamPhase] = useState<string | null>(null)
   const [lastSignal, setLastSignal] = useState<SignalKind>('idle')
   const [pipelineLive, setPipelineLive] = useState(false)
+  const [doctorRunning, setDoctorRunning] = useState(false)
   const [processOpen, setProcessOpen] = useState(() => {
     try {
       return sessionStorage.getItem('companion.processOpen') === '1'
@@ -114,6 +117,20 @@ export function App() {
       startTransition(() => applySnap(data))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function onDoctor() {
+    setError(null)
+    setDoctorRunning(true)
+    setProcessOpen(true)
+    try {
+      const data = await postDoctor()
+      startTransition(() => applySnap(data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDoctorRunning(false)
     }
   }
 
@@ -230,6 +247,7 @@ export function App() {
   const workspaceLabel = memory?.workspaceId || 'workspace'
   const localeLabel = snap?.locale || 'en'
   const lastPipeline = (snap?.lastPipeline ?? null) as PipelineGraphData | null
+  const lastDoctor = snap?.lastDoctor ?? null
 
   return (
     <div className="stage">
@@ -267,9 +285,18 @@ export function App() {
               className={`ghost process-toggle${processOpen ? ' on' : ''}`}
               aria-expanded={processOpen}
               onClick={() => setProcessOpen((v) => !v)}
-              title="Show or hide Signal / Attention / Pipeline"
+              title="Show or hide Signal / Attention / Pipeline / Doctor"
             >
               {processOpen ? 'Hide process' : 'Process'}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => void onDoctor()}
+              disabled={pending || doctorRunning}
+              title="Run Companion ↔ AIOS doctor (on-demand)"
+            >
+              {doctorRunning ? 'Doctor…' : 'Doctor'}
             </button>
             <div className="ws-wrap">
               <button
@@ -377,6 +404,7 @@ export function App() {
               providerOk={snap?.governance.providerOk}
             />
             <AgentGraph graph={lastPipeline} live={pipelineLive} />
+            <DoctorField report={lastDoctor} running={doctorRunning} />
           </div>
         )}
 

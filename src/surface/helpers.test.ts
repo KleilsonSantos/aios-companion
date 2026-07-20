@@ -73,6 +73,7 @@ describe('surface helpers', () => {
     assert.equal(snap.memory.entries[0]?.content, 'note one')
     assert.equal(snap.ok, true)
     assert.equal(snap.lastPipeline, null)
+    assert.equal(snap.lastDoctor, null)
   })
 
   it('lastPipelineTrace + publicTurns carry pipeline meta', () => {

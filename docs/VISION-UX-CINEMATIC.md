@@ -1,7 +1,7 @@
 # Cinematic UX vision — Companion (parked + spike)
 
 > **Status:** parked · **Issue:** [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)  
-> **Spikes:** Signal rail (#106) · Attention field (#112) · Pipeline agent graph (#118) — presence panels tied to real MCP/chat signals. Does **not** fully unpark #37.  
+> **Spikes:** Signal rail (#106) · Attention field (#112) · Pipeline agent graph (#118) · Doctor panel (#124) — presence panels tied to real MCP/chat signals. Does **not** fully unpark #37.  
 > **Design mirror (implemented only):** [Figma — Companion first glance](https://www.figma.com/design/ZSv9VMBAFkEo908kQtBuwi) · tracking [#120](https://github.com/KleilsonSantos/aios-companion/issues/120)  
 > Boundary: [ADR-0014](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0014-control-plane-companion.md).
 
@@ -40,4 +40,4 @@ The Companion may one day be the **command room** (Jarvis / Minority Report); AI
 
 ## Relation to the current MVP
 
-Today Companion is CLI + chat + caps + doctor + surface. Presence spikes so far: **Signal rail** (#106), **Attention field** (#112), **Pipeline agent graph** (#118) — all CSS-only and tied to real control-plane signals. A **Figma mirror** tracks shipped UI only ([#120](https://github.com/KleilsonSantos/aios-companion/issues/120)) — populate after releases, never invent cinema ahead of code. Full cinematic layer remains parked until more spikes meet the criteria above.
+Today Companion is CLI + chat + caps + doctor + surface. Presence spikes so far: **Signal rail** (#106), **Attention field** (#112), **Pipeline agent graph** (#118), **Doctor panel** (#124) — all CSS-only and tied to real control-plane signals. A **Figma mirror** tracks shipped UI only ([#120](https://github.com/KleilsonSantos/aios-companion/issues/120)) — populate after releases, never invent cinema ahead of code. Full cinematic layer remains parked until more spikes meet the criteria above.

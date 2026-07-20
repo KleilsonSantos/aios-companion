@@ -35,6 +35,7 @@ import type {
   GovernanceStatusResult,
   MemoryRecallResult,
 } from '../aios/mcp-client.ts'
+import { runDoctor, type DoctorReport } from '../aios/doctor.ts'
 
 const port = Number(process.env.COMPANION_SURFACE_PORT || 8790)
 
@@ -43,6 +44,7 @@ let conversation: ConversationSession | null = null
 let lastOperational: OperationalStateLite | null = null
 let lastGovernance: GovernanceStatusResult | null = null
 let lastMemory: MemoryRecallResult | null = null
+let lastDoctor: DoctorReport | null = null
 let memoryWorkspaceId = defaultWorkspaceId()
 
 function now(): string {
@@ -129,6 +131,18 @@ function snapshot(session: ConversationSession, error?: string) {
     memory: lastMemory,
     workspaceId: memoryWorkspaceId,
     error,
+    lastDoctor: lastDoctor
+      ? {
+          ok: lastDoctor.ok,
+          summary: lastDoctor.summary,
+          checks: lastDoctor.checks.map((c) => ({
+            id: c.id,
+            ok: c.ok,
+            detail: c.detail,
+            ...(c.severity ? { severity: c.severity } : {}),
+          })),
+        }
+      : null,
   })
 }
 
@@ -471,6 +485,26 @@ const server = createServer(async (req, res) => {
       const conv = await ensureConversation(session)
       const error = await refreshControlPlane(session)
       sendJson(res, 200, snapshot(conv, error))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      sendJson(res, 500, { error: message })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/doctor') {
+    try {
+      const session = await ensureMcp()
+      const conv = await ensureConversation(session)
+      lastDoctor = await runDoctor()
+      sendJson(res, 200, {
+        doctor: {
+          ok: lastDoctor.ok,
+          summary: lastDoctor.summary,
+          checks: lastDoctor.checks,
+        },
+        ...snapshot(conv),
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       sendJson(res, 500, { error: message })
