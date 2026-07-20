@@ -29,3 +29,15 @@ If Companion docs conflict with AIOS `FOUNDATION.md` / ADR-0014 on control-plane
 7. Flow: Issue → `feature/*` from `sandbox` → PR → `sandbox` → PR → `main`.
 8. Product docs are **US English** (mirrors AIOS ADR-0018); owner chat may stay PT.
 9. Do not treat generated agent wikis as canonical product truth.
+
+## Owner cadence (chat)
+
+Same cues as AIOS (survive chat resets — do not rely on conversation memory alone):
+
+| Cue | Meaning |
+| --- | --- |
+| **`next`** | **Proposal only** — Trajetória · O quê · Porquê · Analogia · Trade-off — then **wait** |
+| **`ok`** / **`prossegue`** | Implement (Issue → feature → PR → `sandbox`) |
+| **`green`** | Promote feature→`sandbox`→`main` (+ SemVer release when needed) |
+
+Never treat `next` as silent authorization to code.
