@@ -7,10 +7,12 @@ import {
 import { AttentionField } from './AttentionField'
 import { AgentGraph, type PipelineGraphData } from './AgentGraph'
 import { DoctorField } from './DoctorField'
+import { GovAuditField } from './GovAuditField'
 import {
   fetchSurface,
   fetchWorkspaces,
   postDoctor,
+  postGovAudit,
   postMemory,
   refreshSurface,
   resetSession,
@@ -32,6 +34,7 @@ export function App() {
   const [lastSignal, setLastSignal] = useState<SignalKind>('idle')
   const [pipelineLive, setPipelineLive] = useState(false)
   const [doctorRunning, setDoctorRunning] = useState(false)
+  const [auditRunning, setAuditRunning] = useState(false)
   const [processOpen, setProcessOpen] = useState(() => {
     try {
       return sessionStorage.getItem('companion.processOpen') === '1'
@@ -131,6 +134,20 @@ export function App() {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setDoctorRunning(false)
+    }
+  }
+
+  async function onGovAudit() {
+    setError(null)
+    setAuditRunning(true)
+    setProcessOpen(true)
+    try {
+      const data = await postGovAudit()
+      startTransition(() => applySnap(data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setAuditRunning(false)
     }
   }
 
@@ -248,6 +265,7 @@ export function App() {
   const localeLabel = snap?.locale || 'en'
   const lastPipeline = (snap?.lastPipeline ?? null) as PipelineGraphData | null
   const lastDoctor = snap?.lastDoctor ?? null
+  const lastGovAudit = snap?.lastGovAudit ?? null
 
   return (
     <div className="stage">
@@ -293,10 +311,19 @@ export function App() {
               type="button"
               className="ghost"
               onClick={() => void onDoctor()}
-              disabled={pending || doctorRunning}
+              disabled={pending || doctorRunning || auditRunning}
               title="Run Companion ↔ AIOS doctor (on-demand)"
             >
               {doctorRunning ? 'Doctor…' : 'Doctor'}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => void onGovAudit()}
+              disabled={pending || doctorRunning || auditRunning}
+              title="Run aios_governance_audit (on-demand)"
+            >
+              {auditRunning ? 'Audit…' : 'Audit'}
             </button>
             <div className="ws-wrap">
               <button
@@ -405,6 +432,7 @@ export function App() {
             />
             <AgentGraph graph={lastPipeline} live={pipelineLive} />
             <DoctorField report={lastDoctor} running={doctorRunning} />
+            <GovAuditField report={lastGovAudit} running={auditRunning} />
           </div>
         )}
 

@@ -1097,6 +1097,115 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Presence — Gov audit field (#127) */
+.gov-audit-field {
+  animation: rise 0.8s ease-out 0.18s both;
+  padding: 0.25rem 0 0.05rem;
+  border-top: 1px solid var(--line);
+}
+
+.gov-audit-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.gov-audit-field-head h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.gov-audit-field-meta {
+  font-size: 0.78rem;
+  color: var(--moss-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.gov-audit-field.tone-fail .gov-audit-field-meta {
+  color: #6b2e12;
+}
+
+.gov-audit-empty,
+.gov-audit-summary {
+  margin: 0 0 0.45rem;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.gov-audit-findings {
+  list-style: none;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
+}
+
+.gov-audit-field.tone-ok .gov-audit-findings {
+  border-color: color-mix(in srgb, var(--moss) 35%, var(--line));
+}
+
+.gov-audit-field.tone-fail .gov-audit-findings {
+  border-color: color-mix(in srgb, var(--ember) 40%, var(--line));
+}
+
+.gov-audit-finding {
+  display: grid;
+  grid-template-columns: 0.65rem 1fr;
+  gap: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.gov-audit-dot {
+  box-sizing: border-box;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-top: 0.2rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  grid-row: 1 / span 2;
+}
+
+.gov-audit-finding.info .gov-audit-dot {
+  border-color: var(--moss);
+  background: color-mix(in srgb, var(--moss) 20%, #fff);
+}
+
+.gov-audit-finding.warn .gov-audit-dot {
+  border-color: #9a6b1f;
+  background: color-mix(in srgb, #c9a227 55%, #fff);
+}
+
+.gov-audit-finding.error .gov-audit-dot {
+  border-color: var(--ember);
+  background: color-mix(in srgb, var(--ember) 65%, #fff);
+}
+
+.gov-audit-finding strong {
+  font-weight: 600;
+  color: var(--moss-deep);
+}
+
+.gov-audit-finding.error strong {
+  color: #6b2e12;
+}
+
+.gov-audit-finding span {
+  color: var(--ink-soft);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
