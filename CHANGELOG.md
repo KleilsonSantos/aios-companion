@@ -5,9 +5,21 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
-### Changed
+## [0.16.0] — 2026-07-20
 
-- Docs: Figma design mirror pointer for shipped surface UI (#120)
+**Doctor presence** — fourth presence spike: on-demand bridge check-up on the surface. Cinematic UX (#37) still not fully unparked.
+
+### Added
+
+- `POST /api/doctor` → existing `runDoctor`; `lastDoctor` on surface snapshot (#124)
+- `DoctorField` UI (ok / warn / fail checks) + Doctor button; opens Process stack
+- Resource-Aware: on-demand only (no polling)
+
+### Notes
+
+- Does not fully unpark [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)
+- Figma mirror frames for Doctor follow via [#120](https://github.com/KleilsonSantos/aios-companion/issues/120)
+- Docs Figma pointer (#120) already on `main` (docs-only promote)
 
 ## [0.15.0] — 2026-07-18
 

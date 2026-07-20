@@ -70,6 +70,16 @@ export type SurfaceSnapshot = {
   }
   turns: SurfaceTurn[]
   lastPipeline?: SurfaceTurn['pipeline'] | null
+  lastDoctor?: {
+    ok: boolean
+    summary: string
+    checks: Array<{
+      id: string
+      ok: boolean
+      detail: string
+      severity?: 'error' | 'warn' | 'info'
+    }>
+  } | null
   error?: string
 }
 
@@ -243,6 +253,15 @@ export async function postMemory(options: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),
   })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || `HTTP ${res.status}`)
+  }
+  return (await res.json()) as SurfaceSnapshot
+}
+
+export async function postDoctor(): Promise<SurfaceSnapshot> {
+  const res = await fetch('/api/doctor', { method: 'POST' })
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     throw new Error(body.error || `HTTP ${res.status}`)
