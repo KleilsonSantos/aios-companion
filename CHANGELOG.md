@@ -5,9 +5,24 @@ Versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-07-20
+
+**PKB search consume** — Companion asks AIOS for textual/tag search over `docs/prompts` (does not reimplement).
+
+### Added
+
+- MCP `searchPkb` / `aios_search_pkb` client (#134)
+- CLI `companion pkb search` · chat `/pkb` (query · `--tag` · `--domain`)
+- Resource-Aware: on-demand MCP only
+
 ### Changed
 
 - Figma mirror (#120): Doctor + Gov audit frames after v0.17.0; Process/Doctor heights fixed
+
+### Notes
+
+- Requires AIOS **v0.27.0+** (`aios_search_pkb`)
+- Does not fully unpark [#37](https://github.com/KleilsonSantos/aios-companion/issues/37)
 
 ## [0.17.0] — 2026-07-20
 

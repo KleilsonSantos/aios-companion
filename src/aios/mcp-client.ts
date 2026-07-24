@@ -165,6 +165,29 @@ export type DocsAuditResult = {
   raw: unknown
 }
 
+/** PKB textual / tag search via `aios_search_pkb` (AIOS #158 / Companion #134). */
+export type PkbSearchHit = {
+  id?: string
+  path: string
+  title?: string
+  domain?: string
+  tags: string[]
+  status?: string
+  language?: string
+  score: number
+  matches: string[]
+}
+
+export type PkbSearchResult = {
+  count: number
+  hits: PkbSearchHit[]
+  query?: string
+  tags?: string[]
+  domain?: string
+  summary: string
+  raw: unknown
+}
+
 export type CompilePromptResult = {
   brief: string
   intent?: string
@@ -730,6 +753,91 @@ export class AiosMcpSession {
       ? `docs audit OK · present=${obj.present?.length ?? '?'} · missing=0`
       : `docs audit FAIL · missing=${missing.length} · findings=${findings.length}`
     return { ok, summary, missing, findings, raw }
+  }
+
+  /**
+   * Prompt Knowledge Base search (textual / tags) — AIOS Documentation Engine.
+   * Does not reimplement search; consumes `aios_search_pkb` (#134).
+   */
+  async searchPkb(options: {
+    query?: string
+    tags?: string[]
+    domain?: string
+    limit?: number
+    repoPath?: string
+    workspaceId?: string
+  } = {}): Promise<PkbSearchResult> {
+    const client = this.requireClient()
+    const result = await client.callTool({
+      name: 'aios_search_pkb',
+      arguments: {
+        ...(options.query ? { query: options.query } : {}),
+        ...(options.tags?.length ? { tags: options.tags } : {}),
+        ...(options.domain ? { domain: options.domain } : {}),
+        ...(options.limit !== undefined ? { limit: options.limit } : {}),
+        ...(options.repoPath ? { repoPath: options.repoPath } : {}),
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+      },
+    })
+    const { text, isError } = toolTextAllowError(
+      result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+    )
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch {
+      if (isError) throw new Error(text)
+      throw new Error(`PKB search: JSON inválido — ${text.slice(0, 200)}`)
+    }
+    const obj = raw as {
+      count?: number
+      hits?: Array<{
+        id?: string
+        path?: string
+        title?: string
+        domain?: string
+        tags?: string[]
+        status?: string
+        language?: string
+        score?: number
+        matches?: string[]
+      }>
+      query?: string
+      tags?: string[]
+      domain?: string
+    }
+    const hits: PkbSearchHit[] = (obj.hits || []).map((h) => ({
+      id: h.id,
+      path: h.path || '',
+      title: h.title,
+      domain: h.domain,
+      tags: h.tags || [],
+      status: h.status,
+      language: h.language,
+      score: h.score ?? 0,
+      matches: h.matches || [],
+    }))
+    const count = obj.count ?? hits.length
+    const filters = [
+      obj.query ? `q=${obj.query}` : '',
+      obj.domain ? `domain=${obj.domain}` : '',
+      obj.tags?.length ? `tags=${obj.tags.join('+')}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    const summary =
+      count === 0
+        ? `pkb search · 0 hits${filters ? ` · ${filters}` : ''}`
+        : `pkb search · ${count} hit(s)${filters ? ` · ${filters}` : ''}`
+    return {
+      count,
+      hits,
+      query: obj.query,
+      tags: obj.tags,
+      domain: obj.domain,
+      summary,
+      raw,
+    }
   }
 
   async contractVersion(): Promise<ContractVersionResult> {
@@ -1412,6 +1520,27 @@ export async function auditDocsMcp(
       repoPath: options.repoPath,
       workspaceId: options.workspaceId,
     })
+  } finally {
+    await session.close()
+  }
+}
+
+/** One-shot PKB search via MCP. */
+export async function searchPkbMcp(
+  options: {
+    aiosHome?: string
+    query?: string
+    tags?: string[]
+    domain?: string
+    limit?: number
+    repoPath?: string
+    workspaceId?: string
+  } = {},
+): Promise<PkbSearchResult> {
+  const session = new AiosMcpSession(options.aiosHome)
+  try {
+    await session.connect()
+    return await session.searchPkb(options)
   } finally {
     await session.close()
   }

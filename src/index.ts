@@ -28,6 +28,7 @@ import {
   memoryClearMcp,
   providerHealthMcp,
   providerModelsMcp,
+  searchPkbMcp,
   runAcrossWorkspacesMcp,
   runPipelineMcp,
   workspaceRemoveMcp,
@@ -63,6 +64,7 @@ Uso:
   companion gov audit [--json] [--repo path] [--no-docs]
   companion decide "<resumo>" [--kind note] [--verdict info|pass|fail] [--json]
   companion audit [--json] [--repo path] [--workspace id]
+  companion pkb search [query] [--tag t]… [--domain d] [--limit n] [--json] [--repo path]
   companion memory recall [workspace] [--json] [--limit n] [--query q] [--tag t]
   companion memory remember [workspace] "<nota>" [--tag t] [--json]
   companion memory clear [workspace] --yes [--json]
@@ -89,6 +91,7 @@ Uso:
   Gov: aios_governance_status (health + attention); gov audit → aios_governance_audit.
   Decide: aios_governance_record (log de decisões).
   Audit: aios_audit_docs (inventário/drift de docs canónicos).
+  PKB: aios_search_pkb (busca textual/tags em docs/prompts; alias: prompts).
   Memory: aios_memory_recall / aios_memory_remember / aios_memory_clear (--yes).
   Brief: aios_compile_prompt (intent → brief governado; alias: compile).
   Workspaces: aios_list_workspaces / aios_workspace_* (alias: ws).
@@ -561,6 +564,74 @@ async function cmdAudit(argv: string[]): Promise<void> {
   if (!out.ok) process.exitCode = 1
 }
 
+async function cmdPkb(argv: string[]): Promise<void> {
+  const sub = argv[0]
+  const rest = sub ? argv.slice(1) : argv
+  if (sub && sub !== 'search' && !sub.startsWith('-')) {
+    console.error(`companion pkb> unknown subcommand: ${sub}`)
+    console.error('Uso: companion pkb search [query] [--tag t] [--domain d] [--limit n]')
+    process.exitCode = 1
+    return
+  }
+  const args = sub === 'search' ? rest : argv
+  const jsonOnly = args.includes('--json')
+  const flagVal = (name: string): string | undefined => {
+    const i = args.indexOf(name)
+    if (i < 0) return undefined
+    return args[i + 1]
+  }
+  const tags: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tag' && args[i + 1]) {
+      tags.push(args[++i]!)
+      continue
+    }
+    if (args[i]?.startsWith('--tag=')) {
+      tags.push(args[i]!.slice('--tag='.length))
+    }
+  }
+  const flagNames = new Set([
+    '--tag',
+    '--domain',
+    '--limit',
+    '--json',
+    '--repo',
+    '--workspace',
+  ])
+  const queryParts: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!
+    if (a === '--tag' || a === '--domain' || a === '--limit' || a === '--repo' || a === '--workspace') {
+      i++
+      continue
+    }
+    if (a.startsWith('--')) continue
+    if (i > 0 && flagNames.has(args[i - 1]!)) continue
+    queryParts.push(a)
+  }
+  const home = resolveAiosHome()
+  const limitRaw = flagVal('--limit')
+  const out = await searchPkbMcp({
+    aiosHome: home,
+    query: queryParts.join(' ').trim() || undefined,
+    tags: tags.length ? tags : undefined,
+    domain: flagVal('--domain'),
+    limit: limitRaw ? Number(limitRaw) : undefined,
+    repoPath: flagVal('--repo') || home,
+    workspaceId: flagVal('--workspace'),
+  })
+  if (jsonOnly) {
+    console.log(JSON.stringify(out.raw, null, 2))
+    return
+  }
+  console.log(out.summary)
+  for (const h of out.hits.slice(0, 12)) {
+    const label = h.title || h.id || h.path
+    console.log(`  · ${label}`)
+    console.log(`    ${h.path}${h.domain ? ` · ${h.domain}` : ''}${h.score ? ` · score ${h.score}` : ''}`)
+  }
+}
+
 async function cmdMemory(argv: string[]): Promise<void> {
   const sub = argv[0]
   const rest = argv.slice(1)
@@ -1000,7 +1071,7 @@ async function cmdChat(
       : 'provider + auto-pipeline (análise → aios_run_pipeline)'
   console.log(`session ${session.id}${via ? ` · state via ${via}` : ''}`)
   console.log(`replies: ${mode}`)
-  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /policies · /gov · /gov audit · /decide · /audit · /memory)\n')
+  console.log('(Ctrl+C /quit · análise auto-pipeline · /run · /run-all · /brief · /workspaces · /knowledge · /providers · /policies · /gov · /gov audit · /decide · /audit · /pkb · /memory)\n')
   if (state?.summary) console.log(`[contexto] ${state.summary}\n`)
 
   const rl = createInterface({ input, output })
@@ -1216,6 +1287,54 @@ async function cmdChat(
         }
         continue
       }
+      if (line.trim().startsWith('/pkb')) {
+        const rest = line.trim().slice('/pkb'.length).trim()
+        const parts = rest ? rest.split(/\s+/) : []
+        const tags: string[] = []
+        let domain: string | undefined
+        const queryParts: string[] = []
+        for (let i = 0; i < parts.length; i++) {
+          const p = parts[i]!
+          if (p === '--tag' && parts[i + 1]) {
+            tags.push(parts[++i]!)
+            continue
+          }
+          if (p.startsWith('--tag=')) {
+            tags.push(p.slice('--tag='.length))
+            continue
+          }
+          if (p === '--domain' && parts[i + 1]) {
+            domain = parts[++i]
+            continue
+          }
+          if (p.startsWith('--domain=')) {
+            domain = p.slice('--domain='.length)
+            continue
+          }
+          queryParts.push(p)
+        }
+        try {
+          const pkbMcp = mcp ?? new AiosMcpSession(home)
+          if (!mcp) await pkbMcp.connect()
+          const out = await pkbMcp.searchPkb({
+            query: queryParts.join(' ').trim() || undefined,
+            tags: tags.length ? tags : undefined,
+            domain,
+            repoPath: home,
+          })
+          console.log(`companion · pkb> ${out.summary}`)
+          for (const h of out.hits.slice(0, 8)) {
+            console.log(`  · ${h.title || h.id || h.path}`)
+          }
+          console.log('')
+          if (!mcp) await pkbMcp.close()
+        } catch (err) {
+          console.log(
+            `companion · pkb> falhou: ${err instanceof Error ? err.message : err}\n`,
+          )
+        }
+        continue
+      }
       if (line.trim().startsWith('/decide ')) {
         const summary = line.trim().slice('/decide '.length).trim()
         if (!summary) {
@@ -1389,6 +1508,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'audit' || cmd === 'docs') {
     await cmdAudit(argv.slice(1))
+    return
+  }
+  if (cmd === 'pkb' || cmd === 'prompts') {
+    await cmdPkb(argv.slice(1))
     return
   }
   if (cmd === 'memory' || cmd === 'mem') {
