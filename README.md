@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen)](package.json)
 
-**Version:** `0.17.0` — [CHANGELOG](./CHANGELOG.md)
+**Version:** `0.18.0` — [CHANGELOG](./CHANGELOG.md)
 
 Product documentation is **US English** (mirrors AIOS [ADR-0018](https://github.com/KleilsonSantos/ai-operating-system/blob/main/docs/adr/0018-documentation-language.md)).
 
@@ -106,6 +106,7 @@ pnpm companion gov                  # health + attention (aios_governance_status
 pnpm companion gov audit            # inspection (aios_governance_audit)
 pnpm companion decide "accept minimal CI" --verdict info
 pnpm companion audit                # docs inventory/drift (aios_audit_docs)
+pnpm companion pkb search README --domain documentation   # PKB search (aios_search_pkb)
 pnpm companion memory recall        # workspace memory (default: aios)
 pnpm companion memory remember "short note"
 pnpm companion memory clear --yes   # clear memory (requires --yes)

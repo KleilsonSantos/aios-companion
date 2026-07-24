@@ -246,6 +246,52 @@ describe('AiosMcpSession.auditDocs', () => {
   })
 })
 
+describe('AiosMcpSession.searchPkb', () => {
+  it('resume hits e summary', async () => {
+    const session = new AiosMcpSession('/tmp')
+    ;(session as unknown as { client: unknown }).client = {
+      callTool: async (req: {
+        name?: string
+        arguments?: { query?: string; domain?: string }
+      }) => {
+        assert.equal(req.name, 'aios_search_pkb')
+        assert.equal(req.arguments?.query, 'README')
+        assert.equal(req.arguments?.domain, 'documentation')
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                count: 1,
+                query: 'README',
+                domain: 'documentation',
+                hits: [
+                  {
+                    id: 'prompt.documentation.readme',
+                    path: 'docs/prompts/by-domain/documentation/x.v1.md',
+                    title: 'README audit',
+                    domain: 'documentation',
+                    tags: ['documentation', 'readme'],
+                    score: 5,
+                    matches: ['title', 'domain'],
+                  },
+                ],
+              }),
+            },
+          ],
+        }
+      },
+    }
+    const out = await session.searchPkb({
+      query: 'README',
+      domain: 'documentation',
+    })
+    assert.equal(out.count, 1)
+    assert.equal(out.hits[0]?.id, 'prompt.documentation.readme')
+    assert.match(out.summary, /1 hit/)
+  })
+})
+
 describe('AiosMcpSession.compilePrompt', () => {
   it('resume brief e stats', async () => {
     const session = new AiosMcpSession('/tmp')
